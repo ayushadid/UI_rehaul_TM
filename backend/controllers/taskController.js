@@ -1,5 +1,6 @@
 const Task=require("../models/Task");
 const TimeLog=require("../models/TimeLog");
+const Project = require("../models/Project");
 const mongoose = require('mongoose');
 const Notification = require('../models/Notification');
 const User = require("../models/User");
@@ -43,7 +44,32 @@ const getActiveTimer = async (req, res) => {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
+// Helper function to add assignees to a project's members list
+const addAssigneesToProjectMembers = async (projectId, assigneeIds) => {
+    if (!projectId || !assigneeIds || assigneeIds.length === 0) return;
 
+    try {
+        const project = await Project.findById(projectId);
+        if (!project) return;
+
+        let membersModified = false;
+        const memberIdsAsString = project.members.map(id => id.toString());
+
+        assigneeIds.forEach(assigneeId => {
+            if (!memberIdsAsString.includes(assigneeId.toString())) {
+                project.members.push(assigneeId);
+                membersModified = true;
+            }
+        });
+
+        if (membersModified) {
+            await project.save();
+        }
+    } catch (error) {
+        console.error("Error auto-adding members to project:", error);
+        // We don't throw an error here because the main task operation succeeded
+    }
+};
 // Add this new function to taskController.js
 
 /**
@@ -503,6 +529,8 @@ const getTasksForSpecificUser = async (req, res) => {
         }
 
         const populateOptions = [
+            { path: "project", select: "name" }, // 👈 ADD THIS
+            { path: "createdBy", select: "name" },
             { path: "assignedTo", select: "name email profileImageUrl" },
             { path: "remarks.madeBy", select: "name email profileImageUrl" }
         ];
@@ -753,6 +781,7 @@ const createTask = async (req, res) => {
         }
 
         const task = await Task.create(taskData);
+        await addAssigneesToProjectMembers(task.project, task.assignedTo);
         
         const { io, userSocketMap } = req;
 
@@ -792,6 +821,7 @@ const createTask = async (req, res) => {
                 // --- END: Appended Push Notification Logic ---
             }
         }
+        
         
         res.status(201).json({ message: "Task Created Successfully", task });
 
@@ -852,6 +882,7 @@ const updateTask = async (req, res) => {
         }
 
         const updatedTask = await task.save();
+        await addAssigneesToProjectMembers(updatedTask.project, updatedTask.assignedTo); // 👈 ADD THIS LINE
         await updatedTask.populate({ path: "project", select: "name" });
         res.json({ message: "Task updated successfully", updatedTask });
     } catch (error) {
@@ -992,7 +1023,9 @@ const updateTaskChecklist = async (req, res) => {
             .populate('project', 'name')
             .populate('remarks.madeBy', 'name email profileImageUrl')
             .populate('createdBy', 'name')
-            .populate('reviewers','name');
+            .populate('reviewers','name')
+            .populate('comments.madeBy', 'name profileImageUrl'); // 👈 ADD THIS LINE
+
 
         res.json({ message: "Task checklist updated", task: updatedTask });
 
@@ -1469,6 +1502,50 @@ const canUserUpdateChecklist = (task, user) => {
     return false;
 };
 
+// Add this new function inside backend/controllers/taskController.js
+
+const getAdminBoardData = async (req, res) => {
+    try {
+        // Find all tasks, not just those assigned to the current user
+        const allTasks = await Task.find({})
+            .populate('project', 'name')
+            .populate('assignedTo', 'name profileImageUrl') // Also populate assignedTo
+            .sort({ 'project.name': 1, createdAt: 1 });
+
+        const projectsMap = new Map();
+
+        allTasks.forEach(task => {
+            if (!task.project) return;
+
+            const projectId = task.project._id.toString();
+            
+            if (!projectsMap.has(projectId)) {
+                projectsMap.set(projectId, {
+                    _id: projectId,
+                    name: task.project.name,
+                    tasks: [],
+                });
+            }
+            
+            // We still want to check for active timers for the task cards
+            // This is a simplified check; a more robust solution might check all active logs
+            const taskWithTimerStatus = {
+                ...task.toObject(),
+                isTimerActiveForCurrentUser: false // Default for admin view, can be enhanced later
+            };
+
+            projectsMap.get(projectId).tasks.push(taskWithTimerStatus);
+        });
+
+        const boardData = Array.from(projectsMap.values());
+        res.json(boardData);
+
+    } catch (error) {
+        console.error("Error fetching admin board data:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+};
+
 module.exports={
     getTasks,
     getTasksForSpecificUser,
@@ -1492,4 +1569,5 @@ module.exports={
     finalApproveTask,
     directStatusUpdate,
     getTasksForCalendar,
+    getAdminBoardData
 };

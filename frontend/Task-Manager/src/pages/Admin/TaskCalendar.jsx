@@ -4,7 +4,6 @@ import moment from 'moment';
 import axiosInstance from '../../utils/axiosinstance';
 import { API_PATHS } from '../../utils/apiPaths';
 import { UserContext } from '../../context/userContext';
-import DashboardLayout from '../../components/layouts/DashboardLayout';
 import { useNavigate } from 'react-router-dom';
 
 // Setup the localizer by telling react-big-calendar to use moment.js
@@ -80,7 +79,7 @@ const TaskCalendar = () => {
     };
 
     return (
-        <DashboardLayout activeMenu="Calendar">
+        <>
             <div className="p-4 md:p-6 h-full flex flex-col">
                 <div className="flex flex-col md:flex-row justify-between md:items-center mb-4 gap-4">
                     <h2 className="text-2xl font-bold text-gray-800">Task Calendar</h2>
@@ -110,7 +109,7 @@ const TaskCalendar = () => {
                     />
                 </div>
             </div>
-        </DashboardLayout>
+        </>
     );
 };
 

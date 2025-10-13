@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState, useCallback } from 'react';
 import { useUserAuth } from '../../hooks/useUserAuth';
 import { UserContext } from '../../context/userContext';
-import DashboardLayout from '../../components/layouts/DashboardLayout';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosinstance';
 import { API_PATHS } from '../../utils/apiPaths';
@@ -20,19 +19,13 @@ const Dashboard = () => {
     const { user } = useContext(UserContext);
     const navigate = useNavigate();
 
-    // State for dashboard data
     const [dashboardData, setDashboardData] = useState(null);
-    const [pieChartData, setPieChartData] = useState([]); // Initialize as empty array
-    const [barChartData, setBarChartData] = useState([]); // Initialize as empty array
-    
-    // State for the project filter
+    const [pieChartData, setPieChartData] = useState([]);
+    const [barChartData, setBarChartData] = useState([]);
     const [projects, setProjects] = useState([]);
     const [selectedProjectId, setSelectedProjectId] = useState('all');
 
-    // This function now uses consistent data keys ('name' and 'value') for both charts.
-    // This is the primary fix for the empty graphs issue.
     const prepareChartData = (chartsData) => {
-        
         const taskDistribution = chartsData?.taskDistribution || {};
         const taskPriorityLevels = chartsData?.taskPriorityLevels || {};
           
@@ -48,12 +41,9 @@ const Dashboard = () => {
             { name: "Medium", value: taskPriorityLevels.Medium || 0 },
             { name: "High", value: taskPriorityLevels.High || 0 },
         ];
-        console.log("Data for Pie Chart:", taskDistributionData);
-    console.log("Data for Bar Chart:", priorityLevelData);
         setBarChartData(priorityLevelData);
     };
 
-    // This data fetching function is now wrapped in useCallback and is filter-aware.
     const getDashboardData = useCallback(async () => {
         try {
             let url = API_PATHS.TASKS.GET_DASHBOARD_DATA;
@@ -68,9 +58,8 @@ const Dashboard = () => {
         } catch (error) {
             console.error("Error fetching dashboard data:", error);
         }
-    }, [selectedProjectId]); // It re-creates itself only when the project filter changes
+    }, [selectedProjectId]);
 
-    // This useEffect fetches the list of projects for the dropdown, but only once.
     useEffect(() => {
         const getProjects = async () => {
             try {
@@ -83,7 +72,6 @@ const Dashboard = () => {
         getProjects();
     }, []);
 
-    // This useEffect now correctly re-runs the data fetch whenever the filter changes.
     useEffect(() => {
         getDashboardData();
     }, [getDashboardData]);
@@ -94,9 +82,10 @@ const Dashboard = () => {
     const handlePieSliceClick = (status) => {
         navigate('/admin/tasks', { state: { statusFilter: status } });
     };
+
     return (
-        <DashboardLayout activeMenu="Dashboard">
-            <div className='card my-5'>
+        <>
+            <div className='card mb-6'>
                 <div className='flex flex-col md:flex-row justify-between items-start md:items-center'>
                     <div>
                         <h2 className='text-xl md:text-2xl'>Hello! {user?.name}</h2>
@@ -156,43 +145,38 @@ const Dashboard = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-4 md:my-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <div className="card">
-                        <div className="flex items-center justify-between">
-                            <h5 className="font-medium">Task Distribution</h5>
-                        </div>
+                        <h5 className="font-medium mb-4">Task Distribution</h5>
                         <CustomPieChart
                             data={pieChartData}
                             colors={COLORS}
-                            onSliceClick={handlePieSliceClick} // 👈 Pass the handler to the component
+                            onSliceClick={handlePieSliceClick}
                         />
                     </div>
                 </div>
                 <div>
                     <div className="card">
-                        <div className="flex items-center justify-between">
-                            <h5 className="font-medium">Task Priority</h5>
-                        </div>
+                        <h5 className="font-medium mb-4">Task Priority</h5>
                         <CustomBarChart
                             data={barChartData}
-                            colors={COLORS}
                         />
                     </div>
                 </div>
                 <div className="md:col-span-2">
                     <div className="card">
-                        <div className="flex items-center justify-between">
-                            <h5 className="text-lg">Recent Tasks</h5>
+                        <div className="flex items-center justify-between mb-4">
+                            <h5 className="text-lg font-semibold">Recent Tasks</h5>
                             <button className="card-btn" onClick={onSeeMore}>
-                                See All <LuArrowRight className="text-base" />
+                                See All <LuArrowRight />
                             </button>
                         </div>
                         <TaskListTable tableData={dashboardData?.recentTasks || []} />
                     </div>
                 </div>
             </div>
-        </DashboardLayout>
+        </>
     );
 };
 

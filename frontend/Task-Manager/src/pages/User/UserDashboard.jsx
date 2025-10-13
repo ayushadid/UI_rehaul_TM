@@ -1,7 +1,6 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { useUserAuth } from '../../hooks/useUserAuth';
 import { UserContext } from '../../context/userContext';
-import DashboardLayout from '../../components/layouts/DashboardLayout';
 import { useNavigate } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosinstance';
 import { API_PATHS } from '../../utils/apiPaths';
@@ -23,7 +22,6 @@ const UserDashboard = () => {
     const [pieChartData, setPieChartData] = useState([]);
     const [barChartData, setBarChartData] = useState([]);
 
-    // 1. Corrected to use a consistent 'name'/'value' format for both charts
     const prepareChartData = (chartsData) => {
         const taskDistribution = chartsData?.taskDistribution || {};
         const taskPriorityLevels = chartsData?.taskPriorityLevels || {};
@@ -46,8 +44,7 @@ const UserDashboard = () => {
     useEffect(() => {
         const getDashboardData = async () => {
             try {
-                // 2. Pointing to the new, unified dashboard endpoint
-                const response = await axiosInstance.get(API_PATHS.TASKS.GET_DASHBOARD_DATA);
+                const response = await axiosInstance.get(API_PATHS.TASKS.GET_USER_DASHBOARD_DATA);
                 if (response.data) {
                     setDashboardData(response.data);
                     prepareChartData(response.data.charts);
@@ -61,9 +58,7 @@ const UserDashboard = () => {
     }, []);
     
     const onSeeMore = () => {
-        // Users might not have access to the admin tasks page, you might want a different link here
-        // For now, it points to the same place.
-        navigate('/admin/tasks');
+        navigate('/user/tasks');
     };
 
     const handlePieSliceClick = (status) => {
@@ -71,25 +66,16 @@ const UserDashboard = () => {
     };
 
     return (
-        <DashboardLayout activeMenu="Dashboard">
-            <div className='card my-5'>
+        <>
+            <div className='card mb-6'>
                 <div>
-                    <div className='col-span-3'>
-                        <h2 className='text-xl md:text-2xl'>Hello! {user?.name}</h2>
-                        <p className='text-xs md:text-[13px] text-gray-400 mt-1.5'>
-                            {moment().format("dddd, MMMM Do YYYY")}
-                        </p>
-                    </div>
+                    <h2 className='text-xl md:text-2xl'>Hello! {user?.name}</h2>
+                    <p className='text-xs md:text-[13px] text-gray-400 mt-1.5'>
+                        {moment().format("dddd, MMMM Do YYYY")}
+                    </p>
                 </div>
 
                 <div className='grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-6 mt-5'>
-                    {/* 3. Added the new Total Hours card for the user */}
-                    <InfoCard 
-                        label="My Hours"
-                        value={dashboardData?.totalHours || '0.00'}
-                        color="bg-slate-500"
-                    />
-                    {/* 4. Corrected data paths to use the 'statistics' object */}
                     <InfoCard 
                         label="My Total Tasks"
                         value={addThousandsSeparator(
@@ -121,43 +107,38 @@ const UserDashboard = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 my-4 md:my-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <div className="card">
-                        <div className="flex items-center justify-between">
-                            <h5 className="font-medium">My Task Distribution</h5>
-                        </div>
+                        <h5 className="font-medium mb-4">My Task Distribution</h5>
                         <CustomPieChart
                             data={pieChartData}
                             colors={COLORS}
-                            onSliceClick={handlePieSliceClick} // 👈 Pass the handler to the component
+                            onSliceClick={handlePieSliceClick}
                         />
                     </div>
                 </div>
                 <div>
                     <div className="card">
-                        <div className="flex items-center justify-between">
-                            <h5 className="font-medium">My Task Priority</h5>
-                        </div>
+                        <h5 className="font-medium mb-4">My Task Priority</h5>
                         <CustomBarChart
                             data={barChartData}
-                            colors={COLORS}
                         />
                     </div>
                 </div>
                 <div className="md:col-span-2">
                     <div className="card">
-                        <div className="flex items-center justify-between">
-                            <h5 className="text-lg">My Recent Tasks</h5>
+                        <div className="flex items-center justify-between mb-4">
+                            <h5 className="text-lg font-semibold">My Recent Tasks</h5>
                             <button className="card-btn" onClick={onSeeMore}>
-                                See All <LuArrowRight className="text-base" />
+                                See All <LuArrowRight />
                             </button>
                         </div>
                         <TaskListTable tableData={dashboardData?.recentTasks || []} />
                     </div>
                 </div>
             </div>
-        </DashboardLayout>
+        </>
     );
 };
 

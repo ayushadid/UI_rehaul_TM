@@ -1,38 +1,82 @@
-import React, { useContext } from 'react';
-import { UserContext } from '../../context/userContext';
-import DashboardLayout from '../../components/layouts/DashboardLayout';
+import React, { useContext, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import moment from 'moment';
+import toast from 'react-hot-toast';
 import { FaBell } from 'react-icons/fa';
+import { LuMegaphone, LuClipboardCheck } from 'react-icons/lu';
+import { UserContext } from '../../context/userContext';
+import DashboardLayout from '../../components/layouts/DashboardLayout';
+import Modal from '../../components/Modal';
+import axiosInstance from '../../utils/axiosinstance';
+import { API_PATHS } from '../../utils/apiPaths';
 
 const NotificationsPage = () => {
     const { user, notifications, markAllAsRead, markOneAsRead } = useContext(UserContext);
     const navigate = useNavigate();
+    const [viewingAnnouncement, setViewingAnnouncement] = useState(null);
+    
+    // State to manage the active filter tab
+    const [activeFilter, setActiveFilter] = useState('All');
 
-    const unreadNotifications = notifications.filter(n => !n.read);
-    const readNotifications = notifications.filter(n => n.read);
+    // Filtering logic based on the active tab
+    const filteredNotifications = useMemo(() => {
+        if (activeFilter === 'Tasks') {
+            return notifications.filter(n => n.link.includes('/task-details/'));
+        }
+        if (activeFilter === 'Announcements') {
+            return notifications.filter(n => n.link.includes('/announcements/'));
+        }
+        return notifications; // Default is 'All'
+    }, [notifications, activeFilter]);
 
- const handleNotificationClick = (notification) => {
+    const fetchAndShowAnnouncement = async (announcementId) => {
+        try {
+            const response = await axiosInstance.get(API_PATHS.ANNOUNCEMENTS.GET_BY_ID(announcementId));
+            setViewingAnnouncement(response.data);
+        } catch (error) {
+            toast.error("Could not load the announcement.");
+        }
+    };
+
+    const handleNotificationClick = (notification) => {
         if (!notification.read) {
             markOneAsRead(notification._id);
         }
 
-        // 👇 2. Use the 'user' variable (not 'currentUser')
-        if (user.role === 'admin') {
-            // For admins, we extract the ID from the link and navigate to the edit page
+        if (notification.link.startsWith('/announcements/')) {
+            const announcementId = notification.link.split('/').pop();
+            fetchAndShowAnnouncement(announcementId);
+        } else if (notification.link.startsWith('/user/task-details/')) {
             const taskId = notification.link.split('/').pop();
-            navigate('/admin/create-task', { state: { taskId: taskId } });
-        } else {
-            // For regular users, we just navigate to the link as is
-            navigate(notification.link);
+            const path = user.role === 'admin' ? '/admin/create-task' : `/user/task-details/${taskId}`;
+            navigate(path, { state: { taskId } });
         }
     };
 
+    const unreadNotifications = filteredNotifications.filter(n => !n.read);
+    const readNotifications = filteredNotifications.filter(n => n.read);
+
+    // Sub-component for the filter buttons to keep the main return clean
+    const FilterButton = ({ label, icon: Icon }) => {
+        const isActive = activeFilter === label;
+        return (
+            <button
+                onClick={() => setActiveFilter(label)}
+                className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    isActive ? 'bg-primary/10 text-primary' : 'text-slate-500 hover:bg-slate-100'
+                }`}
+            >
+                <Icon />
+                {label}
+            </button>
+        );
+    };
+
     return (
-        <DashboardLayout activeMenu="Notifications">
+        <>
             <div className="p-4 md:p-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-gray-800">Notifications</h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-2xl font-bold text-gray-800">Inbox</h2>
                     {unreadNotifications.length > 0 && (
                         <button onClick={markAllAsRead} className="text-sm text-primary font-semibold hover:underline">
                             Mark all as read
@@ -40,7 +84,13 @@ const NotificationsPage = () => {
                     )}
                 </div>
 
-                {/* Unread Notifications Section */}
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-2 mb-6 border-b pb-4">
+                    <FilterButton label="All" icon={FaBell} />
+                    <FilterButton label="Tasks" icon={LuClipboardCheck} />
+                    <FilterButton label="Announcements" icon={LuMegaphone} />
+                </div>
+
                 {unreadNotifications.length > 0 && (
                     <div className="mb-8">
                         <h3 className="text-lg font-semibold text-gray-500 mb-3 uppercase tracking-wider">Unread</h3>
@@ -52,31 +102,37 @@ const NotificationsPage = () => {
                     </div>
                 )}
 
-                {/* Read Notifications Section */}
                 <h3 className="text-lg font-semibold text-gray-500 mb-3 uppercase tracking-wider">Recent</h3>
-                {notifications.length === 0 ? (
+                {filteredNotifications.length === 0 ? (
                     <div className="text-center py-16 text-gray-500 bg-gray-50 rounded-lg">
                         <FaBell className="mx-auto text-4xl mb-2 text-gray-400" />
-                        You have no notifications yet.
+                        No notifications match this filter.
                     </div>
                 ) : readNotifications.length > 0 ? (
                     <div className="space-y-3">
-                        {readNotifications.slice(0, 20).map(n => ( // Show last 20 read
+                        {readNotifications.slice(0, 20).map(n => (
                             <NotificationItem key={n._id} notification={n} onClick={handleNotificationClick} />
                         ))}
                     </div>
                 ) : (
-                    // This shows if all notifications are unread
-                    <div className="text-center py-10 text-gray-500">
+                     <div className="text-center py-10 text-gray-500">
                         No recent read notifications.
                     </div>
                 )}
             </div>
-        </DashboardLayout>
+
+            <Modal isOpen={!!viewingAnnouncement} onClose={() => setViewingAnnouncement(null)} title={viewingAnnouncement?.title}>
+                <div className="prose max-w-none prose-slate">
+                    <p className="whitespace-pre-wrap">{viewingAnnouncement?.content}</p>
+                </div>
+                <div className="mt-6 pt-4 border-t text-sm text-slate-500">
+                    Sent by <strong>{viewingAnnouncement?.sender?.name}</strong> on {moment(viewingAnnouncement?.createdAt).format('MMMM Do, YYYY')}
+                </div>
+            </Modal>
+        </>
     );
 };
 
-// Sub-component for rendering a single notification item
 const NotificationItem = ({ notification, onClick }) => (
     <div 
       onClick={() => onClick(notification)} 

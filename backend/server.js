@@ -16,6 +16,8 @@ const timelogRoutes = require("./routes/timelogRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const performanceRoutes = require("./routes/performanceRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const announcementRoutes = require("./routes/announcementRoutes"); 
+
 
 const app = express();
 const server = http.createServer(app); // 👈 3. Create an HTTP server from your Express app
@@ -84,6 +86,7 @@ app.use("/api/ai", aiRoutes);
 app.use("/api/performance", performanceRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/push", require("./routes/pushRoutes"));
+app.use("/api/announcements", announcementRoutes);
 
 // Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

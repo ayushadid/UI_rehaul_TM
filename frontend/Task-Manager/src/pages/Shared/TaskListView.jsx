@@ -161,10 +161,17 @@ const TaskRow = ({ task, onRowClick, onTaskUpdate }) => {
     );
 };
 
-const TaskTable = ({ tasks, onTaskUpdate }) => {
+const TaskTable = ({ tasks, onTaskUpdate, currentUser  }) => {
     const navigate = useNavigate();
     const handleRowClick = (taskId) => {
-        navigate('/admin/create-task', { state: { taskId: taskId } });
+        // 👇 UPDATED: ROLE-AWARE NAVIGATION
+        // If admin, go to the edit/create page.
+        // If member, go to the details view page.
+        if (currentUser.role === 'admin') {
+            navigate('/admin/create-task', { state: { taskId: taskId } });
+        } else {
+            navigate(`/user/task-details/${taskId}`);
+        }
     };
 
     return (
@@ -203,225 +210,168 @@ const TaskTable = ({ tasks, onTaskUpdate }) => {
 // Main ManageTasks Component
 // =================================================================================
 
-const ManageTasks = () => {
+const TaskListView = () => {
     const location = useLocation();
-    const queryParams = new URLSearchParams(location.search);
     const navigate = useNavigate();
+    const { user: currentUser } = useContext(UserContext);
+    const queryParams = new URLSearchParams(location.search);
 
+    // State for data
     const [displayedTasks, setDisplayedTasks] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [projects, setProjects] = useState([]);
     const [tabs, setTabs] = useState([]);
     const [users, setUsers] = useState([]);
+
+    // State for all filters
     const [filterStatus, setFilterStatus] = useState(queryParams.get('status') || "All");
     const [selectedProject, setSelectedProject] = useState(queryParams.get('projectId') || 'all');
-    const [selectedUserId, setSelectedUserId] = useState(queryParams.get('assignedUserId') || 'all');
     const [sortBy, setSortBy] = useState(queryParams.get('sortBy') || 'createdAt');
+    const [selectedUserId, setSelectedUserId] = useState(queryParams.get('assignedUserId') || 'all');
     const [dueDateFilter, setDueDateFilter] = useState(queryParams.get('dueDate') || '');
     const [createdDateFilter, setCreatedDateFilter] = useState(queryParams.get('createdDate') || '');
-    const [showLiveOnly, setShowLiveOnly] = useState(false);
-    const [liveTasks, setLiveTasks] = useState([]);
-    const { user: currentUser } = useContext(UserContext);
 
-    const updateStatusCounts = useCallback(async () => {
+    // Update URL when any filter changes
+    const updateURL = useCallback(() => {
+        const params = new URLSearchParams();
+        if (filterStatus && filterStatus !== 'All') params.set('status', filterStatus);
+        if (selectedProject && selectedProject !== 'all') params.set('projectId', selectedProject);
+        if (dueDateFilter) params.set('dueDate', dueDateFilter);
+        if (createdDateFilter) params.set('createdDate', createdDateFilter);
+
+        if (currentUser?.role === 'admin') {
+            if (sortBy && sortBy !== 'createdAt') params.set('sortBy', sortBy);
+            if (selectedUserId && selectedUserId !== 'all') params.set('assignedUserId', selectedUserId);
+        }
+
+        navigate({ search: params.toString() }, { replace: true });
+    }, [filterStatus, selectedProject, sortBy, selectedUserId, dueDateFilter, createdDateFilter, navigate, currentUser?.role]);
+
+    // Fetch tasks and counts based on the URL
+    const fetchTasksAndCounts = useCallback(async () => {
+        setIsLoading(true);
         try {
             const response = await axiosInstance.get(`${API_PATHS.TASKS.GET_ALL_TASKS}${location.search}`);
+            const cleanTasks = (response.data?.tasks || []).filter(task => task && task._id);
+            setDisplayedTasks(cleanTasks);
+
             const statusSummary = response.data?.statusSummary || {};
             const statusArray = [
                 { label: "All", count: statusSummary.all || 0 },
                 { label: "Overdue", count: statusSummary.overdueTasks || 0 },
                 { label: "Pending", count: statusSummary.pendingTasks || 0 },
                 { label: "In Progress", count: statusSummary.inProgressTasks || 0 },
-                { label: "Pending Review", count: statusSummary.pendingReviewTasks || 0 },
-                { label: "Pending Final Approval", count: statusSummary.pendingFinalApprovalTasks || 0 },
                 { label: "Completed", count: statusSummary.completedTasks || 0 },
             ];
             setTabs(statusArray);
         } catch (error) {
-            console.error("Error silently updating counts:", error);
-        }
-    }, [location.search]);
-
-    const handleTaskUpdate = (updatedTask) => {
-        setDisplayedTasks(prevTasks =>
-            prevTasks.map(task =>
-                task._id === updatedTask._id ? updatedTask : task
-            )
-        );
-        updateStatusCounts();
-    };
-    
-    const fetchTasks = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const response = await axiosInstance.get(`${API_PATHS.TASKS.GET_ALL_TASKS}${location.search}`);
-            // In the fetchTasks function
-// In the fetchTasks function
-const cleanTasks = (response.data?.tasks || []).filter(task => 
-    task && task._id && task.createdBy && task.status
-);
-setDisplayedTasks(cleanTasks);            updateStatusCounts(); // Use this to keep counts in sync
-        } catch (error) {
             console.error("Error fetching tasks:", error);
-            setDisplayedTasks([]);
+            toast.error("Could not load tasks.");
         } finally {
             setIsLoading(false);
         }
-    }, [location.search, updateStatusCounts]);
+    }, [location.search]);
+    
+    useEffect(() => {
+        updateURL();
+    }, [updateURL]);
 
     useEffect(() => {
-        const params = new URLSearchParams();
-        if (filterStatus && filterStatus !== 'All') params.set('status', filterStatus);
-        if (selectedProject && selectedProject !== 'all') params.set('projectId', selectedProject);
-        if (selectedUserId && selectedUserId !== 'all') params.set('assignedUserId', selectedUserId);
-        if (sortBy && sortBy !== 'createdAt') params.set('sortBy', sortBy);
-        if (dueDateFilter) params.set('dueDate', dueDateFilter);
-        if (createdDateFilter) params.set('createdDate', createdDateFilter);
-        navigate({ search: params.toString() }, { replace: true });
-    }, [filterStatus, selectedProject, selectedUserId, sortBy, dueDateFilter, createdDateFilter, navigate]);
+        fetchTasksAndCounts();
+    }, [fetchTasksAndCounts]);
 
     useEffect(() => {
+        const projectEndpoint = currentUser?.role === 'admin' ? API_PATHS.PROJECTS.GET_ALL_PROJECTS : API_PATHS.PROJECTS.GET_MY_PROJECTS;
+        axiosInstance.get(projectEndpoint).then(res => setProjects(res.data || []));
+
         if (currentUser?.role === 'admin') {
-            const getUsers = async () => {
-                try {
-                    const response = await axiosInstance.get(API_PATHS.USERS.GET_ALL_USERS);
-                    setUsers(response.data?.users || response.data || []);
-                } catch (error) { console.error("Error fetching users:", error); }
-            };
-            getUsers();
+            axiosInstance.get(API_PATHS.USERS.GET_ALL_USERS).then(res => setUsers(res.data?.users || res.data || []));
         }
-    }, [currentUser?.role]);
-
-    useEffect(() => {
-        const getProjects = async () => {
-            try {
-                const projectResponse = await axiosInstance.get(API_PATHS.PROJECTS.GET_ALL_PROJECTS);
-                setProjects(Array.isArray(projectResponse.data) ? projectResponse.data : []);
-            } catch (error) { console.error("Error fetching projects:", error); }
-        };
-        getProjects();
-    }, []);
-
-    useEffect(() => {
-        if (!showLiveOnly) {
-            fetchTasks();
-        }
-    }, [fetchTasks, showLiveOnly]);
-
-    useEffect(() => {
-        if (showLiveOnly) {
-            const fetchLiveTasks = async () => {
-                setIsLoading(true);
-                try {
-                    const response = await axiosInstance.get(API_PATHS.TIMELOGS.GET_ACTIVE_TIMELOGS);
-                    const activeTasks = response.data.map(log => log.task).filter(Boolean);
-                    setLiveTasks(activeTasks);
-                } catch (error) { console.error("Error fetching live tasks:", error); }
-                finally { setIsLoading(false); }
-            };
-            fetchLiveTasks();
-        }
-    }, [showLiveOnly]);
+    }, [currentUser]);
 
     const handleClearFilters = () => {
         setSelectedProject('all');
         setDueDateFilter('');
         setCreatedDateFilter('');
         setFilterStatus('All');
+        setSortBy('createdAt');
         setSelectedUserId('all');
     };
 
-    const tasksToRender = showLiveOnly ? liveTasks : displayedTasks;
-
     return (
         <>
-            <div className='my-5'>
-                <div className='flex flex-col md:flex-row md:items-center justify-between'>
-                    <h2 className='text-xl md:text-xl font-medium'>Manage Tasks</h2>
-                    <div className="flex items-center gap-4">
-                         <label htmlFor="live-toggle" className="flex items-center cursor-pointer">
-                             <LuRadioTower className={`mr-2 ${showLiveOnly ? 'text-red-500 animate-pulse' : 'text-slate-400'}`} />
-                             <span className={`text-sm font-medium ${showLiveOnly ? 'text-red-500' : 'text-slate-600'}`}>Live Tasks</span>
-                             <div className="relative ml-3">
-                                 <input type="checkbox" id="live-toggle" className="sr-only" checked={showLiveOnly} onChange={() => setShowLiveOnly(!showLiveOnly)} />
-                                 <div className={`block ${showLiveOnly ? 'bg-red-500' : 'bg-gray-200'} w-12 h-6 rounded-full transition`}></div>
-                                 <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${showLiveOnly ? 'transform translate-x-6' : ''}`}></div>
-                             </div>
-                         </label>
+            <fieldset disabled={isLoading} className={`my-5 p-4 bg-white rounded-lg shadow-sm disabled:opacity-50 transition`}>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
+                    
+                    <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Project</label>
+                        <select className="form-input text-sm w-full" value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}>
+                            <option value="all">All Projects</option>
+                            {projects.map((project) => (<option key={project._id} value={project._id}>{project.name}</option>))}
+                        </select>
                     </div>
-                </div>
 
-                <fieldset disabled={showLiveOnly || isLoading} className={`my-4 p-4 bg-white rounded-lg shadow-sm disabled:opacity-40 transition`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4 items-end">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-600 mb-1">Project</label>
-                            <select className="form-input text-sm w-full" value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}>
-                                <option value="all">All Projects</option>
-                                {projects.map((project) => (<option key={project._id} value={project._id}>{project.name}</option>))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-600 mb-1">Sort By</label>
-                            <select className="form-input text-sm w-full" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                                <option value="createdAt">Most Recent</option>
-                                <option value="hours">Most Hours Logged</option>
-                            </select>
-                        </div>
-                        {currentUser?.role === 'admin' && (
+                    {currentUser?.role === 'admin' && (
+                        <>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Sort By</label>
+                                <select className="form-input text-sm w-full" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                                    <option value="createdAt">Most Recent</option>
+                                    <option value="hours">Most Hours Logged</option>
+                                </select>
+                            </div>
                             <div>
                                 <label className="block text-sm font-medium text-slate-600 mb-1">Assigned To</label>
-                                <div className="relative">
-                                    <select className="form-input text-sm w-full pl-9" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
-                                        <option value="all">All Users</option>
-                                        {users.map((user) => (<option key={user._id} value={user._id}>{user.name}</option>))}
-                                    </select>
-                                </div>
+                                <select className="form-input text-sm w-full" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
+                                    <option value="all">All Users</option>
+                                    {users.map((user) => (<option key={user._id} value={user._id}>{user.name}</option>))}
+                                </select>
                             </div>
-                        )}
-                        <div>
-                            <label className="block text-sm font-medium text-slate-600 mb-1">Due Date</label>
-                            <div className="relative">
-                                <input type="date" className="form-input text-sm w-full pr-10" value={dueDateFilter} onChange={(e) => setDueDateFilter(e.target.value)} />
-                                {dueDateFilter && (<button onClick={() => setDueDateFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><FaTimes /></button>)}
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-600 mb-1">Created Date</label>
-                            <div className="relative">
-                                <input type="date" className="form-input text-sm w-full pr-10" value={createdDateFilter} onChange={(e) => setCreatedDateFilter(e.target.value)} />
-                                {createdDateFilter && (<button onClick={() => setCreatedDateFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><FaTimes /></button>)}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="mt-4 text-right">
-                        <button onClick={handleClearFilters} className="text-sm text-blue-600 hover:underline font-medium">Clear All Filters</button>
-                    </div>
-                </fieldset>
-
-                {!showLiveOnly && (
-                   <div className="flex items-center gap-3 mt-4 md:mt-0">
-                     <TaskStatusTab tabs={tabs} activeTab={filterStatus} setActiveTab={setFilterStatus} />
-                   </div>
-                )}
-
-                <div className='mt-4'>
-                    {isLoading ? (
-                        <div className="text-center py-20 text-gray-500">Loading tasks...</div>
-                    ) : tasksToRender.length > 0 ? (
-                        <TaskTable tasks={tasksToRender} onTaskUpdate={handleTaskUpdate} />
-                    ) : (
-                        <div className="text-center py-20 text-gray-500 bg-white rounded-lg shadow-sm border border-slate-200">
-                            {showLiveOnly ? "No tasks are currently active." : "No tasks match the current filters."}
-                        </div>
+                        </>
                     )}
+
+                    <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Due Date</label>
+                        <div className="relative">
+                            <input type="date" className="form-input text-sm w-full pr-10" value={dueDateFilter} onChange={(e) => setDueDateFilter(e.target.value)} />
+                            {dueDateFilter && (<button onClick={() => setDueDateFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><FaTimes /></button>)}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-slate-600 mb-1">Created Date</label>
+                        <div className="relative">
+                            <input type="date" className="form-input text-sm w-full pr-10" value={createdDateFilter} onChange={(e) => setCreatedDateFilter(e.target.value)} />
+                            {createdDateFilter && (<button onClick={() => setCreatedDateFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><FaTimes /></button>)}
+                        </div>
+                    </div>
+
                 </div>
+                <div className="mt-4 text-right">
+                    <button onClick={handleClearFilters} className="text-sm text-blue-600 hover:underline font-medium">Clear All Filters</button>
+                </div>
+            </fieldset>
+
+            <div className="flex items-center gap-3 mt-4">
+                <TaskStatusTab tabs={tabs} activeTab={filterStatus} setActiveTab={setFilterStatus} />
             </div>
 
-            {currentUser?.role === 'admin' && (
-                <AiCommandInterface onTaskCreated={fetchTasks} />
-            )}
+            <div className='mt-4'>
+                {isLoading ? (
+                    <div className="text-center py-20 text-gray-500">Loading tasks...</div>
+                ) : displayedTasks.length > 0 ? (
+                    <TaskTable 
+                        tasks={displayedTasks} 
+                        currentUser={currentUser}
+                        onTaskUpdate={(updatedTask) => setDisplayedTasks(prev => prev.map(t => t._id === updatedTask._id ? updatedTask : t))} 
+                    />
+                ) : (
+                    <div className="text-center py-20 text-gray-500 bg-white rounded-lg shadow-sm border border-slate-200">
+                        No tasks match the current filters.
+                    </div>
+                )}
+            </div>
         </>
     );
 };
 
-export default ManageTasks;
+export default TaskListView;

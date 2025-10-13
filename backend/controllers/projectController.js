@@ -28,22 +28,36 @@ const createProject = async (req, res) => {
   }
 };
 
+// In backend/controllers/projectController.js
+
 /**
- * @desc    Get all projects for the logged-in user
+ * @desc    Get all projects for the logged-in user (by membership or task assignment)
  * @route   GET /api/projects
  * @access  Private
  */
 const getProjects = async (req, res) => {
   try {
-    // Find all projects where the logged-in user is either the owner or a member
-    // const projects = await Project.find({
-    //   $or: [{ owner: req.user.id }, { members: req.user.id }],
-    // }).populate("owner members", "name email"); // Populate user details
-// Find all projects, no user filtering
-const projects = await Project.find({}).populate("owner members", "name email"); // An empty filter {} fetches all documents
+    // Step 1: Find projects where the user is an explicit member and projects where they have assigned tasks.
+    // We run these two database queries in parallel for better performance.
+    const [projectsByMembership, projectIdsByTask] = await Promise.all([
+      Project.find({ members: req.user._id }).select('_id'),
+      Task.distinct('project', { assignedTo: req.user._id })
+    ]);
+
+    // Step 2: Extract the IDs from both queries.
+    const idsByMembership = projectsByMembership.map(p => p._id.toString());
+    const idsByTask = projectIdsByTask.map(id => id.toString());
+
+    // Step 3: Combine and de-duplicate the list of project IDs using a Set.
+    const allRelevantProjectIds = [...new Set([...idsByMembership, ...idsByTask])];
+
+    // Step 4: Fetch the full details for all relevant projects in a single query.
+    const projects = await Project.find({ '_id': { $in: allRelevantProjectIds } })
+        .populate("owner members", "name email");
+
     res.status(200).json(projects);
   } catch (error) {
-    console.error("Error getting projects:", error);
+    console.error("Error getting projects for user:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
@@ -62,6 +76,25 @@ const getAllProjects = async (req, res) => {
     console.error("Error getting all projects:", error);
     res.status(500).json({ message: "Server Error", error: error.message });
   }
+};
+
+/**
+ * @desc    Get a single project by ID
+ * @route   GET /api/projects/:id
+ * @access  Private (Admin)
+ */
+const getProjectById = async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id)
+            .populate("owner members", "name email profileImageUrl");
+
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+        res.status(200).json(project);
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
 };
 
 /**
@@ -122,12 +155,37 @@ const getProjectGanttData = async (req, res) => {
         res.status(500).json({ message: "Server error" });
     }
 };
+/**
+ * @desc    Update a project
+ * @route   PUT /api/projects/:id
+ * @access  Private (Admin)
+ */
+const updateProject = async (req, res) => {
+    try {
+        const { name, description } = req.body;
+        const project = await Project.findById(req.params.id);
+
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+
+        project.name = name || project.name;
+        project.description = description !== undefined ? description : project.description;
+        
+        const updatedProject = await project.save();
+        res.status(200).json(updatedProject);
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
 
 
 module.exports = {
   createProject,
-  getProjects,
+  getProjects, // Make sure this is exported
   getAllProjects,
-  getProjectGanttData // 👈 Add the new function here
+  getProjectGanttData, // Make sure this is exported
+  getProjectById,
+  updateProject
 };
 

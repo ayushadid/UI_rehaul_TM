@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useContext  } from 'react';
 // ... other imports
 import { UserContext } from '../../context/userContext'; // Adjust path if necessary
-import DashboardLayout from '../../components/layouts/DashboardLayout'
 import { PRIORITY_DATA } from '../../utils/data'
 import axiosInstance from '../../utils/axiosinstance'
 import { API_PATHS } from '../../utils/apiPaths'
@@ -32,6 +31,7 @@ const defaultTodos = [
 // In CreateTask.jsx
 
 const CreateTask = () => {
+
   const location=useLocation();
   const{taskId}=location.state||{};
   const navigate=useNavigate();
@@ -126,7 +126,28 @@ const handleValueChange = useCallback((key, value) => {
   setTaskData((prevData) => ({ ...prevData, [key]: value }));
 }, []); // The empty array [] means the function is created once and never changes
 
-  
+   // 👇 ADD THIS useEffect HOOK
+  // This effect runs when the component loads to check for a pre-selected project
+  useEffect(() => {
+    // Get the projectId passed from the Project Board
+    const { projectId: projectIdFromState } = location.state || {};
+    
+    // If we have a projectId from the navigation state, set it
+    if (projectIdFromState) {
+      handleValueChange('project', projectIdFromState);
+    }
+  }, [location.state, handleValueChange]);
+
+
+  useEffect(() => {
+    if (taskId && projects.length > 0) {
+      getTaskDetailsById();
+    }
+    // Clear the project if navigating here without a state, unless it's an existing task
+    if (!taskId && !location.state?.projectId) {
+      handleValueChange('project', '');
+    }
+  }, [taskId, projects, location.state]);
 
   const clearData=()=>{
     setTaskData({
@@ -410,7 +431,7 @@ const refreshTaskDataWithNewComment = (updatedTask) => {
         setTaskData(prev => ({ ...prev, comments: updatedTask.comments }));
     };
   return (
-  <DashboardLayout activeMenu="Create Task">
+  <>
     <div className="mt-5">
       <div className="grid grid-cols-1 md:grid-cols-4 mt-4">
         <div className="form-card col-span-3">
@@ -637,7 +658,7 @@ const refreshTaskDataWithNewComment = (updatedTask) => {
         title="Confirm Deletion"
         message="Are you sure you want to delete this task? This action cannot be undone."
     />
-  </DashboardLayout>
+  </>
 );
 
 }

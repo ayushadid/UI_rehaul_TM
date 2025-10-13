@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-export const BASE_URL=import.meta.env.VITE_API_URL ||"http://192.168.1.15:8000"
-=======
+
 export const BASE_URL = "http://192.168.1.5:8000";
->>>>>>> 761cd01 (Initial commit)
 
 //utils/apiPaths.js
 export const API_PATHS={
@@ -20,8 +17,9 @@ export const API_PATHS={
         GET_ALL_USERS:"/api/users", //Get all users (Admin only)
         GET_USER_BY_ID: (userId)=>`/api/users/${userId}`, //Get user by Id
         CREATE_USER: "/api/users", //Create a new user (admin only)
-        UPDATE_USER:(userId)=>`/api/users/${userId}`, //Update user details
-        DELETE_USER:(userId)=>`/api/users/${userId}`, //Delete a user
+        GET_MANAGE_USERS: "/api/users/manage", // 👈 ADD THIS
+        UPDATE_ROLE: (userId) => `/api/users/${userId}/role`, // 👈 ADD THIS
+        DELETE_USER: (userId) => `/api/users/${userId}`, 
     },
 
     TASKS:{
@@ -51,6 +49,7 @@ export const API_PATHS={
         FINAL_APPROVE_TASK: (taskId) => `/api/tasks/${taskId}/final-approval`, // For the creator's final sign-off
         DIRECT_STATUS_UPDATE: (taskId) => `/api/tasks/${taskId}/direct-status-update`, // For the clickable status pill
 
+        GET_ADMIN_BOARD: "/api/tasks/admin-board",
         GET_USER_BOARD: "/api/tasks/user-board",
         GET_TASKS_FOR_CALENDAR: "/api/tasks/calendar",
     },
@@ -79,6 +78,10 @@ export const API_PATHS={
         EXPORT_TASKS:"/api/reports/exports/tasks",
         EXPORT_USERS:"/api/reports/exports/users",
     },
+    ANNOUNCEMENTS: {
+        CREATE: "/api/announcements",
+        GET_BY_ID: (id) => `/api/announcements/${id}`, // 👈 ADD THIS
+},
 
     IMAGE:{
         UPLOAD_IMAGE:"api/auth/upload-image"

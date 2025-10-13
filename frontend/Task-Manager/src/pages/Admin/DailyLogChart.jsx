@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useContext } from 'react';
-import DashboardLayout from '../../components/layouts/DashboardLayout';
 import Chart from 'react-apexcharts';
 import axiosInstance from '../../utils/axiosinstance';
 import { API_PATHS } from '../../utils/apiPaths';
@@ -170,7 +169,7 @@ const AdminDayView = () => {
   };
 
   return (
-    <DashboardLayout activeMenu="Day View">
+    <>
       <div className="mt-5">
         <h2 className="text-2xl font-semibold text-gray-800">Team Day View</h2>
         <p className="mt-2 text-sm text-gray-600">A timeline of logged work for any user on the selected day.</p>
@@ -227,7 +226,7 @@ const AdminDayView = () => {
           <div className="text-center py-10 text-gray-500">No time logs found for this selection.</div>
         )}
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

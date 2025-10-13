@@ -112,32 +112,48 @@ const getUserProfile=async(req,res)=>{
 //@desc Register a new User
 //@route POST /api/auth/profile
 //@access Private(requires JWT)
-const updateUserProfile=async(req,res)=>{
-    try{
-        const user=await User.findById(req.user.id);
+// In backend/controllers/authController.js
 
-        if(!user){
-            return res.status(404).json({message:"User not found"});
+const updateUserProfile = async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id);
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
         }
 
-        user.name=req.body.name || user.name;
-        user.email=req.body.email || user.email;
+        user.name = req.body.name || user.name;
+        user.email = req.body.email || user.email;
+        user.profileImageUrl = req.body.profileImageUrl || user.profileImageUrl;
 
-        if(req.body.password){
-            const salt=await bcrypt.genSalt(10);
-            user.password=await bcrypt.has(req.body.password, salt);
+        // Secure password change logic
+        if (req.body.newPassword) {
+            if (!req.body.currentPassword) {
+                return res.status(400).json({ message: "Current password is required to change password." });
+            }
+
+            const isMatch = await bcrypt.compare(req.body.currentPassword, user.password);
+
+            if (!isMatch) {
+                return res.status(401).json({ message: "Incorrect current password." });
+            }
+
+            const salt = await bcrypt.genSalt(10);
+            user.password = await bcrypt.hash(req.body.newPassword, salt);
         }
-        const updatedUser=await user.save();
+
+        const updatedUser = await user.save();
         
         res.json({
-            _id:updatedUser._id,
-            name:updatedUser.name,
-            email:updatedUser.email,
-            role:updatedUser.role,
-            token:generateToken(updatedUser._id),
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            role: updatedUser.role,
+            profileImageUrl: updatedUser.profileImageUrl,
+            token: generateToken(updatedUser._id),
         });
-    }catch(error){
-        res.status(500).json({message:"Server error",error:error.message});
+    } catch (error) {
+        res.status(500).json({ message: "Server error", error: error.message });
     }
 };
 

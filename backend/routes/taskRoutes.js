@@ -24,6 +24,7 @@ const {
     finalApproveTask,
     directStatusUpdate,
     getTasksForCalendar,
+    getAdminBoardData
 } = require("../controllers/taskController");
 const router = express.Router();
 
@@ -36,6 +37,7 @@ router.get("/", protect, getTasks);
 router.get("/dashboard-data", protect, getDashboardData);
 router.get("/user-dashboard-data", protect, getUserDashboardData);
 router.get("/user-board", protect, getUserBoardData);
+router.get("/admin-board", protect, adminOnly, getAdminBoardData);
 router.route('/calendar').get(protect, getTasksForCalendar);
 
 

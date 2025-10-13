@@ -2,155 +2,49 @@ import {
     LuLayoutDashboard,
     LuUsers,
     LuClipboardCheck,
-    LuSquarePlus,
     LuLogOut,
-    LuSheet,   
-    LuView,
     LuBell,
-    LuCalendarDays, 
+    LuTrendingUp ,
     LuFolderKanban,
-    LuFileText 
-} from "react-icons/lu"
+    LuMegaphone
+} from "react-icons/lu";
 
-export const SIDE_MENU_DATA=[
-    {
-        id:"01",
-        label:"Dashboard",
-        icon:LuLayoutDashboard,
-        path:"/admin/dashboard",
-    },
-    {
-        id:"99",
-    label: "Notifications",
-    path: "/notifications",
-    icon: LuBell,
-  },
-    {
-        id:"02",
-        label:"Manage Tasks",
-        icon:LuClipboardCheck,
-        path:"/admin/tasks",
-    },
-    {
-        id:"03",
-        label:"Create Task",
-        icon:LuSquarePlus,
-        path:"/admin/create-task",
-    },
-    // {
-    //     id: "10",
-    //     label: "Blog & Updates",
-    //     icon: LuFileText,
-    //     path: "/admin/blog",
-    // },
-    // {
-    //     id:"08",
-    //     label:"Gantt",
-    //     icon: LuFolderKanban,
-    //     path: "/gantt", // This will be the new page
-    // },
-    {
-        id:"04",
-        label:"Team Members",
-        icon:LuUsers,
-        path:"/admin/users",
-    },
-    {
-        id:"07",
-      label: "My Day View",
-      path: "/admin/my-day-view",
-      icon: LuLayoutDashboard ,
-    },
-     {
-    label: "Board",
-    path: "/board",
-    icon: LuView,
-  },
-  {
-        id:"09", // Give it a new ID
-        label:"Calendar",
-        icon: LuCalendarDays,
-        path: "/calendar",
-    },
-    {
-        id:"06",
-    label: "Shared Sheet",
-    path: "/shared-sheet",
-    icon: LuSheet,
-  },
-    {
-        id:"05",
-        label:"Logout",
-        icon:LuLogOut,
-        path:"logout",
-    },
-    
+// Admin Menu (Projects item removed)
+export const SIDE_MENU_DATA = [
+    { id: "01", label: "Dashboard", icon: LuLayoutDashboard, path: "/admin/dashboard" },
+    { id: "02", label: "My Tasks", icon: LuClipboardCheck, path: "/admin/tasks" },
+    { id: "03", label: "Inbox", icon: LuBell, path: "/notifications" },
+    { id: "04", label: "Team", icon: LuUsers, path: "/admin/users" },
+    { id: "05", label: "Reports", icon: LuTrendingUp, path: "/admin/my-day-view" },
+    { id: "08", label: "Create Announcement", icon: LuMegaphone, path: "/admin/create-announcement" },
+    { id: "07", label: "Logout", icon: LuLogOut, path: "logout" },
 ];
 
-export const SIDE_MENU_USER_DATA=[
-    {
-        id:"01",
-        label:"Dashboard",
-        icon:LuLayoutDashboard,
-        path:"/user/dashboard",
-    },
-    {
-        id:"99",
-    label: "Notifications",
-    path: "/notifications",
-    icon: LuBell,
-  },
-    {
-        id:"02",
-        label:"My Tasks",
-        icon:LuClipboardCheck,
-        path:"/user/tasks",
-    },
-    // {
-    //     id: "10",
-    //     label: "Blog & Updates",
-    //     icon: LuFileText,
-    //     path: "/admin/blog",
-    // },
-    {
-        id:"07",
-      label: "My Day View",
-      path: "/user/my-day-view",
-      icon: LuLayoutDashboard ,
-    },
-     {
-    label: "Board",
-    path: "/board",
-    icon: LuView,
-  },
-  {
-        id:"09", // Give it a new ID
-        label:"Calendar",
-        icon: LuCalendarDays,
-        path: "/calendar",
-    },
-    {
-        id:"06",
-    label: "Shared Sheet",
-    path: "/shared-sheet",
-    icon: LuSheet,
-  },
-    {
-        id:"05",
-        label:"Logout",
-        icon:LuLogOut,
-        path:"logout",
-    },
+// User Menu (Projects item removed)
+// In frontend/Task-Manager/src/utils/data.js
+
+// ... (SIDE_MENU_DATA for admin remains the same) ...
+
+// New, simplified menu for Users
+export const SIDE_MENU_USER_DATA = [
+    { id: "01", label: "Dashboard", icon: LuLayoutDashboard, path: "/user/dashboard" },
+    { id: "02", label: "My Tasks", icon: LuClipboardCheck, path: "/user/tasks" },
+    { id: "03", label: "Inbox", icon: LuBell, path: "/notifications" },
+    // 👇 THIS IS THE FIX 👇
+    { id: "04", label: "Projects", icon: LuFolderKanban, path: "/board" },
+    { id: "05", label: "Logout", icon: LuLogOut, path: "logout" },
 ];
 
-export const PRIORITY_DATA=[
-    {label:"Low",value:"Low"},
-    {label:"Medium",value:"Medium"},
-    {label:"High",value:"High"},
-]
+// ... (rest of the file is the same)
 
-export const STATUS_DATA=[
-    {label:"Pending",value:"Pending"},
-    {label:"In Progress",value:"In Progress"},
-    {label:"Completed",value:"Completed"},
-]
+export const PRIORITY_DATA = [
+    { label: "Low", value: "Low" },
+    { label: "Medium", value: "Medium" },
+    { label: "High", value: "High" },
+];
+
+export const STATUS_DATA = [
+    { label: "Pending", value: "Pending" },
+    { label: "In Progress", value: "In Progress" },
+    { label: "Completed", value: "Completed" },
+];

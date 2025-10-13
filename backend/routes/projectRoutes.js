@@ -1,18 +1,34 @@
 const express = require("express");
 const router = express.Router();
-const { createProject, getProjects,getAllProjects,getProjectGanttData  } = require("../controllers/projectController");
-// 👇 1. Import your adminOnly middleware
+const { 
+    createProject, 
+    getProjects,
+    getAllProjects, 
+    getProjectById,
+    updateProject,
+    getProjectGanttData
+} = require("../controllers/projectController");
 const { protect, adminOnly } = require("../middlewares/authMiddleware");
 
-// The GET route remains accessible to all logged-in users
-router.get("/", protect, getProjects);
+// SPECIFIC ROUTES FIRST
+// GET /api/projects/all (For Admins to get all projects)
+router.get("/all", protect, adminOnly, getAllProjects);
 
-// 👇 2. Add adminOnly to the POST route
-router.post("/", protect, adminOnly, createProject);
+// GENERAL ROUTES
+// GET /api/projects (For any user to get projects they are a member of)
+// POST /api/projects (For Admins to create a project)
+router.route("/")
+    .get(protect, getProjects)
+    .post(protect, adminOnly, createProject);
 
-router.get("/all", protect, getAllProjects);
+// DYNAMIC (PARAMETERIZED) ROUTES LAST
+// GET /api/projects/:id/gantt
+router.get("/:id/gantt", protect, getProjectGanttData);
 
-router.route('/:id/gantt').get(protect, getProjectGanttData);
-
+// GET /api/projects/:id
+// PUT /api/projects/:id
+router.route("/:id")
+    .get(protect, adminOnly, getProjectById)
+    .put(protect, adminOnly, updateProject);
 
 module.exports = router;

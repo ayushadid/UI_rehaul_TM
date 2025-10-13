@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import DashboardLayout from '../../components/layouts/DashboardLayout';
 import { LuMaximize } from 'react-icons/lu'; // Icon for the fullscreen button
 
 // 1. All sheets are now in a single array for easier management.
@@ -49,7 +48,7 @@ const embedUrl = activeSheet.url;
   };
 
   return (
-    <DashboardLayout activeMenu="Shared Sheet">
+    <>
       <div className="mt-5 flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-gray-800">Shared Spreadsheets</h2>
         {/* 2. The descriptive text has been removed and the fullscreen button is added here. */}
@@ -93,7 +92,7 @@ const embedUrl = activeSheet.url;
           Loading…
         </iframe>
       </div>
-    </DashboardLayout>
+    </>
   );
 };
 

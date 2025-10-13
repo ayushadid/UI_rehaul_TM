@@ -3,7 +3,6 @@ import React, { useEffect, useState, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosinstance';
 import { API_PATHS } from '../../utils/apiPaths';
-import DashboardLayout from '../../components/layouts/DashboardLayout';
 import toast from 'react-hot-toast';
 import moment from 'moment'; // For date formatting
 import { UserContext } from '../../context/userContext'; // To check user role if needed
@@ -67,7 +66,7 @@ const TaskTimeLogsPage = () => {
     }, [taskId]);
 
     return (
-        <DashboardLayout activeMenu="My Tasks"> {/* Or "Manage Tasks" if admin also navigates here */}
+        <> {/* Or "Manage Tasks" if admin also navigates here */}
             <div className="mt-5 mb-10 p-6 bg-white rounded-lg shadow-md">
                 <h2 className="text-2xl font-semibold mb-6 text-gray-800">
                     Time Logs for: <span className="text-blue-700">{taskTitle}</span>
@@ -136,7 +135,7 @@ const TaskTimeLogsPage = () => {
                     </>
                 )}
             </div>
-        </DashboardLayout>
+        </>
     );
 };
 

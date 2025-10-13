@@ -40,7 +40,8 @@ app.use(
   cors({
     origin: [
       "https://adidmanager.onrender.com", // your frontend URL
-      "http://localhost:5173",            // local dev (optional)
+      "http://localhost:5173",  
+      "http://192.168.1.5:5173",          // local dev (optional)
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true, // important if using cookies or auth tokens

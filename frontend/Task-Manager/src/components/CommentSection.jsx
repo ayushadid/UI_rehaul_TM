@@ -99,7 +99,7 @@ const CommentSection = ({ taskId, comments = [], onCommentAdded }) => {
                     return (
                         <React.Fragment key={comment._id || `comment-${index}`}>
                             {dateSeparator}
-                            <div className={`flex items-end gap-2.5 ${isMyComment ? 'justify-end' : 'justify-start'} ${showAvatar ? 'mt-4' : 'mt-1'}`}>
+                            <div className={`flex items-end gap-2.5 max-w-full ${isMyComment ? 'justify-end' : 'justify-start'} ${showAvatar ? 'mt-4' : 'mt-1'}`}>
                                 <div className={`w-8 flex-shrink-0 ${isMyComment ? 'order-2' : 'order-1'}`}>
                                     {showAvatar && (
                                         <img 
@@ -109,14 +109,27 @@ const CommentSection = ({ taskId, comments = [], onCommentAdded }) => {
                                         />
                                     )}
                                 </div>
-                                <div className={`max-w-xs md:max-w-md p-3 rounded-2xl ${isMyComment ? 'order-1 bg-gray-800 text-white rounded-br-lg' : 'order-2 bg-gray-200 text-gray-800 rounded-bl-lg'}`}>
-                                    {showAvatar && !isMyComment && (
-                                        <p className="font-bold text-sm text-gray-900 mb-1">{comment.madeBy?.name}</p>
-                                    )}
-                                    <p className="text-sm whitespace-pre-wrap">{comment.text}</p>
-                                    <p className={`text-xs mt-2 opacity-70 ${isMyComment ? 'text-right' : 'text-left'}`}>
-                                        {moment(comment.createdAt).format('h:mm A')}
+                                <div
+                                  className={`p-3 w-fit max-w-full break-words rounded-2xl ${
+                                    isMyComment
+                                      ? 'order-1 bg-gray-800 text-white rounded-br-lg self-end'
+                                      : 'order-2 bg-gray-200 text-gray-800 rounded-bl-lg self-start'
+                                  }`}
+                                  style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}
+                                >
+                                  {showAvatar && !isMyComment && (
+                                    <p className="font-bold text-sm text-gray-900 mb-1">
+                                      {comment.madeBy?.name}
                                     </p>
+                                  )}
+                                  <p className="text-sm whitespace-pre-wrap break-words">{comment.text}</p>
+                                  <p
+                                    className={`text-xs mt-2 opacity-70 ${
+                                      isMyComment ? 'text-right' : 'text-left'
+                                    }`}
+                                  >
+                                    {moment(comment.createdAt).format('h:mm A')}
+                                  </p>
                                 </div>
                             </div>
                         </React.Fragment>

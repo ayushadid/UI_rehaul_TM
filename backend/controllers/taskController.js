@@ -389,7 +389,7 @@ const getSummaryCounts = async (filter, user) => { // Now requires the 'user' ob
 const getTasks = async (req, res) => {
     try {
         const { 
-            status, projectId, dueDate, createdDate, assignedUserId, sortBy 
+            status, projectId, dueDate, createdDate, assignedUserId, sortBy, search 
         } = req.query;
         
         const isUserAdmin = req.user.role === "admin";
@@ -406,13 +406,20 @@ const getTasks = async (req, res) => {
         if (projectId && projectId !== 'all') {
             baseFilter.project = new mongoose.Types.ObjectId(projectId);
         }
+
+        if (search) {
+            baseFilter.$or = [
+                { title: { $regex: search, $options: 'i' } },
+                { description: { $regex: search, $options: 'i' } }
+            ];
+        }
         
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         const statusParam = status ? status.toLowerCase() : '';
 
-        // --- Comprehensive Filter Logic ---
+        // --- Comprehensive Filter Logic (Your existing logic is preserved) ---
         if (statusParam === 'awaiting my approval') {
             baseFilter.$or = [
                 { reviewStatus: 'PendingReview', reviewers: req.user._id },
@@ -433,7 +440,7 @@ const getTasks = async (req, res) => {
             baseFilter.status = new RegExp(`^${status}$`, 'i');
         }
 
-        // Date filters are applied independently, unless it's an 'overdue' search
+        // --- Date filters (Your existing logic is preserved) ---
         if (dueDate && statusParam !== 'overdue') {
             const targetDueDate = new Date(dueDate);
             baseFilter.dueDate = { 
@@ -458,7 +465,6 @@ const getTasks = async (req, res) => {
         ];
 
         if (sortBy === 'hours') {
-            // Aggregation path preserved
             tasks = await Task.aggregate([
                 { $match: baseFilter },
                 { $lookup: { from: 'timelogs', localField: '_id', foreignField: 'task', as: 'timeLogs' }},
@@ -472,41 +478,60 @@ const getTasks = async (req, res) => {
                 { $unwind: { path: "$project", preserveNullAndEmptyArrays: true } },
             ]);
         } else {
-            // Default .find().populate() path preserved
             tasks = await Task.find(baseFilter)
                 .populate(populateOptions)
                 .sort({ createdAt: -1 });
         }
         
+        // --- START: NEW TIMER STATUS LOGIC ---
+        const taskIds = tasks.map(t => t._id);
+        const activeTimers = await TimeLog.find({
+            user: req.user._id,
+            endTime: null,
+            task: { $in: taskIds }
+        }).lean();
+
+        const activeTimerMap = new Map();
+        activeTimers.forEach(timer => {
+            activeTimerMap.set(timer.task.toString(), timer._id.toString());
+        });
+
         const processedTasks = tasks.map(task => {
-            const taskObject = task.toObject ? task.toObject() : task;
+            const taskObject = task.toObject ? task.toObject() : { ...task };
+            const taskIdString = taskObject._id.toString();
+
+            if (activeTimerMap.has(taskIdString)) {
+                taskObject.isTimerActiveForCurrentUser = true;
+                taskObject.activeTimeLogId = activeTimerMap.get(taskIdString);
+            } else {
+                taskObject.isTimerActiveForCurrentUser = false;
+                taskObject.activeTimeLogId = null;
+            }
             return taskObject;
         });
+        // --- END: NEW TIMER STATUS LOGIC ---
         
         let canUserReviewOrApprove = false;
         if (req.user.role === 'admin') {
             canUserReviewOrApprove = true;
         } else {
-            // Check if the user is the creator or a reviewer on ANY task
             const isStakeholder = await Task.findOne({
                 $or: [
                     { createdBy: req.user._id },
                     { reviewers: req.user._id }
                 ]
-            }).lean(); // .lean() makes the query faster
-            
+            }).lean();
             if (isStakeholder) {
                 canUserReviewOrApprove = true;
             }
         }
-        // --- END: NEW PERMISSION LOGIC ---
 
         const statusSummary = await getSummaryCounts(baseFilter, req.user);
 
         res.json({
             tasks: processedTasks,
             statusSummary,
-            canUserReviewOrApprove, // <-- Send the new flag to the frontend
+            canUserReviewOrApprove,
         });
 
     } catch (error) {

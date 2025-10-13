@@ -25,17 +25,28 @@ const server = http.createServer(app); // 👈 3. Create an HTTP server from you
 // 👈 4. Configure Socket.IO to work with the new server
 const io = new Server(server, {
   cors: {
-    origin: process.env.CLIENT_URL || "*",
-    methods: ["GET", "POST"]
+    origin: [
+      "https://adidmanager.onrender.com",
+      "http://localhost:5173"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
+
 // Middleware to handle CORS
-// Middleware to handle CORS with more specific options
-app.use(cors({
-  origin: "*", // Allows all origins
-  methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS", // Specifies allowed methods
-}));
+app.use(
+  cors({
+    origin: [
+      "https://adidmanager.onrender.com", // your frontend URL
+      "http://localhost:5173",            // local dev (optional)
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    credentials: true, // important if using cookies or auth tokens
+  })
+);
+
 // Connect to database
 connectDB();
 

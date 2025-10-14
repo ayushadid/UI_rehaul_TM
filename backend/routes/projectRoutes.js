@@ -6,7 +6,8 @@ const {
     getAllProjects, 
     getProjectById,
     updateProject,
-    getProjectGanttData
+    getProjectGanttData,
+    getMemberProjectById 
 } = require("../controllers/projectController");
 const { protect, adminOnly } = require("../middlewares/authMiddleware");
 
@@ -30,5 +31,7 @@ router.get("/:id/gantt", protect, getProjectGanttData);
 router.route("/:id")
     .get(protect, adminOnly, getProjectById)
     .put(protect, adminOnly, updateProject);
+    
+router.get("/member/:id", protect, getMemberProjectById); // 👈 ADD THIS
 
 module.exports = router;

@@ -24,7 +24,8 @@ const {
     finalApproveTask,
     directStatusUpdate,
     getTasksForCalendar,
-    getAdminBoardData
+    getAdminBoardData,
+    getLiveTasks
 } = require("../controllers/taskController");
 const router = express.Router();
 
@@ -32,6 +33,8 @@ const router = express.Router();
 
 // Main route for getting all tasks (or filtered tasks)
 router.get("/", protect, getTasks);
+
+router.get("/live", protect, adminOnly, getLiveTasks); // 👈 ADD THIS
 
 // Dashboard and Board routes
 router.get("/dashboard-data", protect, getDashboardData);

@@ -7,7 +7,6 @@ const Header = ({ activeMenu }) => {
   const params = useParams();
   const { user } = useContext(UserContext);
 
-  // Smartly find the project ID from either URL params or query string
   const queryParams = new URLSearchParams(location.search);
   const projectId = params.projectId || queryParams.get('projectId');
 
@@ -17,22 +16,23 @@ const Header = ({ activeMenu }) => {
   const globalTaskViewTabs = [
     { label: 'List', path: taskListPath },
     { label: 'Board', path: '/board' },
-    { label: 'Calendar', path: '/calendar' },
   ];
   
-  
-
   // Tabs for a specific project view
   const projectViewTabs = projectId ? [
     { label: 'Dashboard', path: `/projects/${projectId}/dashboard` },
     { label: 'List', path: `${taskListPath}?projectId=${projectId}` },
     { label: 'Board', path: `/projects/${projectId}/board` },
-    { label: 'Calendar', path: `/projects/${projectId}/calendar` },
-    { label: 'Details', path: `/projects/${projectId}/details` }, // 👈 ADD THIS LINE
+    { 
+      label: 'Details', 
+      path: user?.role === 'admin' 
+        ? `/admin/projects/${projectId}/details` 
+        : `/user/projects/${projectId}/details` 
+    },
   ] : [];
 
   // Determine which set of tabs to show
-  const shouldShowGlobalTabs = ['My Tasks', 'Board', 'Calendar'].includes(activeMenu) && !projectId;
+  const shouldShowGlobalTabs = ['My Tasks', 'Board'].includes(activeMenu) && !projectId;
   const shouldShowProjectTabs = !!projectId;
 
   const tabsToShow = shouldShowProjectTabs ? projectViewTabs : (shouldShowGlobalTabs ? globalTaskViewTabs : []);
@@ -40,12 +40,12 @@ const Header = ({ activeMenu }) => {
   return (
     <header className="flex-shrink-0 bg-white border-b border-slate-200 h-16 flex items-center justify-between px-6">
       <div className="flex items-center gap-6">
-        <h1 className="text-xl font-bold text-slate-800">{activeMenu}</h1>
+        
+        {/* The <h1> that displayed the title has been removed */}
         
         {tabsToShow.length > 0 && (
           <nav className="flex items-center gap-2">
             {tabsToShow.map(tab => {
-              // Check if the current path and query match the tab's path
               const isActive = location.pathname === tab.path.split('?')[0] && location.search === (tab.path.split('?')[1] ? `?${tab.path.split('?')[1]}` : '');
               return (
                 <Link

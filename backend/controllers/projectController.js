@@ -179,6 +179,38 @@ const updateProject = async (req, res) => {
     }
 };
 
+/**
+ * @desc    Get a single project by ID (for members)
+ * @route   GET /api/projects/member/:id
+ * @access  Private (Member)
+ */
+const getMemberProjectById = async (req, res) => {
+    try {
+        const project = await Project.findById(req.params.id);
+
+        if (!project) {
+            return res.status(404).json({ message: "Project not found" });
+        }
+
+        // Authorization Check: Is the current user a member of this project?
+        const isMember = project.members.some(memberId => memberId.toString() === req.user._id.toString());
+        const isOwner = project.owner.toString() === req.user._id.toString();
+
+
+        if (!isMember && !isOwner) {
+            return res.status(403).json({ message: "Not authorized to view this project" });
+        }
+        
+        // If authorized, proceed to fetch the full details
+        const projectDetails = await Project.findById(req.params.id)
+            .populate("owner members", "name email profileImageUrl");
+
+        res.status(200).json(projectDetails);
+
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
 
 module.exports = {
   createProject,
@@ -186,6 +218,7 @@ module.exports = {
   getAllProjects,
   getProjectGanttData, // Make sure this is exported
   getProjectById,
-  updateProject
+  updateProject,
+  getMemberProjectById 
 };
 

@@ -44,6 +44,50 @@ const getActiveTimer = async (req, res) => {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
+
+/**
+ * @desc    Get all tasks with currently active timers
+ * @route   GET /api/tasks/live
+ * @access  Private (Admin Only)
+ */
+const getLiveTasks = async (req, res) => {
+    try {
+        // Find all time logs that haven't ended yet
+        const activeLogs = await TimeLog.find({ endTime: null }).distinct('task');
+
+        // Fetch the full details for those specific tasks
+        const liveTasks = await Task.find({ _id: { $in: activeLogs } })
+            .populate('project', 'name')
+            .populate('assignedTo', 'name profileImageUrl')
+            .populate('createdBy', 'name')
+            .populate('reviewers', 'name');
+            
+        // You can add the timer status logic here as well if needed for consistency
+        const tasksWithTimerStatus = await Promise.all(
+            liveTasks.map(async (task) => {
+                const taskObject = task.toObject();
+                // Since we are fetching live tasks, we can assume the timer is active
+                // for the user who started it. We'll determine this on the frontend for simplicity.
+                 const activeLog = await TimeLog.findOne({ 
+                    task: task._id, 
+                    endTime: null 
+                }).populate('user', 'name');
+
+                taskObject.isTimerActiveForCurrentUser = (activeLog?.user._id.toString() === req.user._id.toString());
+                taskObject.activeTimeLogId = activeLog ? activeLog._id.toString() : null;
+                taskObject.activeTimerUser = activeLog ? activeLog.user.name : "Unknown"; // Add user name
+
+                return taskObject;
+            })
+        );
+
+        res.json({ tasks: tasksWithTimerStatus });
+    } catch (error) {
+        console.error("Error fetching live tasks:", error);
+        res.status(500).json({ message: "Server Error" });
+    }
+};
+
 // Helper function to add assignees to a project's members list
 const addAssigneesToProjectMembers = async (projectId, assigneeIds) => {
     if (!projectId || !assigneeIds || assigneeIds.length === 0) return;
@@ -233,17 +277,19 @@ const getTaskTimeLogs = async (req, res) => {
 // @desc Start a timer for a task
 // @route POST /api/tasks/:taskId/timelogs/start
 // @access Private (Assigned User or Admin)
+// In backend/controllers/taskController.js
+
 const startTimer = async (req, res) => {
     try {
         const { taskId } = req.params;
-        const userId = req.user._id; // User ID from the authenticated token
+        const userId = req.user._id;
 
         const task = await Task.findById(taskId);
         if (!task) {
             return res.status(404).json({ message: "Task not found." });
         }
 
-        // Authorization: Only assigned users or admins can start a timer for this task
+        // Authorization check (your existing logic is preserved)
         const isAssigned = task.assignedTo.some(
             (id) => id.toString() === userId.toString()
         );
@@ -253,28 +299,48 @@ const startTimer = async (req, res) => {
             return res.status(403).json({ message: "Not authorized to start a timer for this task." });
         }
 
-        // Check if there's an existing active timer for this user on this task
+        // Check for existing active timer (your existing logic is preserved)
         const activeTimeLog = await TimeLog.findOne({
             task: taskId,
             user: userId,
-            endTime: null, // Look for logs where endTime is not set
+            endTime: null,
         });
 
         if (activeTimeLog) {
             return res.status(400).json({ message: "You already have an active timer for this task. Please stop it first." });
         }
 
-        // Create a new TimeLog entry
+        // Create a new TimeLog entry (your existing logic is preserved)
         const newTimeLog = await TimeLog.create({
             task: taskId,
             user: userId,
-            startTime: Date.now(), // Set current time
+            startTime: Date.now(),
         });
 
+        // --- START: MODIFIED SECTION ---
+
+        // 1. Fetch the task again to populate all necessary fields for the response
+        const updatedTask = await Task.findById(taskId)
+            .populate('assignedTo', 'name email profileImageUrl')
+            .populate('project', 'name')
+            .populate('remarks.madeBy', 'name email profileImageUrl')
+            .populate('createdBy', 'name')
+            .populate('reviewers','name')
+            .populate('comments.madeBy', 'name profileImageUrl');
+
+        // 2. Convert to a plain object and manually add the timer status
+        const taskObject = updatedTask.toObject();
+        taskObject.isTimerActiveForCurrentUser = true;
+        taskObject.activeTimeLogId = newTimeLog._id;
+
+        // 3. Return the full, updated task object in the response
         res.status(201).json({
             message: "Timer started successfully.",
             timeLog: newTimeLog,
+            task: taskObject // This is the new, crucial part
         });
+        
+        // --- END: MODIFIED SECTION ---
 
     } catch (error) {
         console.error("Error starting timer:", error);
@@ -285,6 +351,8 @@ const startTimer = async (req, res) => {
 // @desc Stop a timer for a task
 // @route PUT /api/tasks/:taskId/timelogs/:timeLogId/stop
 // @access Private (User who started it or Admin)
+// In backend/controllers/taskController.js
+
 const stopTimer = async (req, res) => {
     try {
         const { taskId, timeLogId } = req.params;
@@ -302,7 +370,7 @@ const stopTimer = async (req, res) => {
             return res.status(400).json({ message: "Time log does not belong to the specified task." });
         }
 
-        // Authorization: Only the user who started the timer or an admin can stop it
+        // Authorization (your existing logic is preserved)
         const isOwner = timeLog.user.toString() === userId.toString();
         const isAdmin = req.user.role === "admin";
 
@@ -310,21 +378,41 @@ const stopTimer = async (req, res) => {
             return res.status(403).json({ message: "Not authorized to stop this timer." });
         }
 
-        // Check if the timer is already stopped
+        // Check if the timer is already stopped (your existing logic is preserved)
         if (timeLog.endTime !== null) {
             return res.status(400).json({ message: "Timer is already stopped." });
         }
 
-        // Set endTime and calculate duration
+        // Set endTime and calculate duration (your existing logic is preserved)
         timeLog.endTime = Date.now();
-        timeLog.duration = timeLog.endTime.getTime() - timeLog.startTime.getTime(); // Duration in milliseconds
+        timeLog.duration = timeLog.endTime.getTime() - timeLog.startTime.getTime();
 
         await timeLog.save();
 
+        // --- START: MODIFIED SECTION ---
+
+        // 1. Fetch the task again to populate all necessary fields
+        const updatedTask = await Task.findById(taskId)
+            .populate('assignedTo', 'name email profileImageUrl')
+            .populate('project', 'name')
+            .populate('remarks.madeBy', 'name email profileImageUrl')
+            .populate('createdBy', 'name')
+            .populate('reviewers','name')
+            .populate('comments.madeBy', 'name profileImageUrl');
+
+        // 2. Convert to a plain object and manually add the new timer status
+        const taskObject = updatedTask.toObject();
+        taskObject.isTimerActiveForCurrentUser = false;
+        taskObject.activeTimeLogId = null;
+
+        // 3. Return the full, updated task object in the response
         res.status(200).json({
             message: "Timer stopped successfully.",
             timeLog: timeLog,
+            task: taskObject // This is the new, crucial part
         });
+        
+        // --- END: MODIFIED SECTION ---
 
     } catch (error) {
         console.error("Error stopping timer:", error);
@@ -1594,5 +1682,6 @@ module.exports={
     finalApproveTask,
     directStatusUpdate,
     getTasksForCalendar,
-    getAdminBoardData
+    getAdminBoardData,
+    getLiveTasks
 };

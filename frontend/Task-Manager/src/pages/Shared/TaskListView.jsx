@@ -13,7 +13,7 @@ import AiCommandInterface from '../../components/AiCommandInterface.jsx';
 import { FaTimes } from 'react-icons/fa';
 import { IoChevronDownCircleOutline, IoChevronUpCircleOutline } from "react-icons/io5";
 import { GoDotFill } from "react-icons/go";
-import { LuPlay, LuCircleStop,LuTimer   } from 'react-icons/lu'; // CORRECTED: LuPlayCircle changed to LuPlay
+import { LuPlay, LuCircleStop, LuRadioTower, LuTimer } from 'react-icons/lu';
 
 
 // =================================================================================
@@ -21,10 +21,10 @@ import { LuPlay, LuCircleStop,LuTimer   } from 'react-icons/lu'; // CORRECTED: L
 // =================================================================================
 
 const AvatarStack = ({ users = [] }) => {
-    // This component has no changes.
     if (!users || users.length === 0) {
         return <span className="text-slate-400 text-xs">N/A</span>;
     }
+
     return (
         <div className="flex items-center -space-x-2">
             {users.slice(0, 3).map(user => (
@@ -49,12 +49,13 @@ const AvatarStack = ({ users = [] }) => {
 };
 
 const ChecklistSection = ({ task, onUpdate }) => {
-    // This component has no changes.
     const [checklist, setChecklist] = useState(task.todoChecklist || []);
+
     const handleCheckChange = async (index) => {
         const newChecklist = [...checklist];
         newChecklist[index].completed = !newChecklist[index].completed;
         setChecklist(newChecklist);
+
         try {
             const response = await axiosInstance.put(API_PATHS.TASKS.UPDATE_TASK_CHECKLIST(task._id), { todoChecklist: newChecklist });
             toast.success("Checklist updated!");
@@ -66,13 +67,19 @@ const ChecklistSection = ({ task, onUpdate }) => {
             setChecklist(task.todoChecklist);
         }
     };
+
     return (
         <div>
             <h4 className="text-sm font-semibold mb-2 text-slate-700">Checklist</h4>
             <div className="space-y-2">
                 {checklist.map((item, index) => (
                     <div key={item._id || index} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-100">
-                        <input type="checkbox" checked={item.completed} onChange={() => handleCheckChange(index)} className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded-sm outline-none cursor-pointer" />
+                        <input
+                            type="checkbox"
+                            checked={item.completed}
+                            onChange={() => handleCheckChange(index)}
+                            className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded-sm outline-none cursor-pointer"
+                        />
                         <p className={`text-sm ${item.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.text}</p>
                     </div>
                 ))}
@@ -82,7 +89,6 @@ const ChecklistSection = ({ task, onUpdate }) => {
 };
 
 const TaskStatusPill = ({ task }) => {
-    // This component has no changes.
     const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'Completed';
     const statuses = {
         Overdue: { text: 'Overdue', color: 'bg-red-100 text-red-700' },
@@ -95,7 +101,6 @@ const TaskStatusPill = ({ task }) => {
 };
 
 const ReviewStatusPill = ({ task }) => {
-    // This component has no changes.
     if (!task.reviewers || task.reviewers.length === 0) {
         return <span className="text-slate-400 text-xs">N/A</span>;
     }
@@ -110,40 +115,105 @@ const ReviewStatusPill = ({ task }) => {
     return <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-flex items-center gap-1.5 ${display.color}`}><GoDotFill/> {display.text}</span>;
 };
 
+const TaskTimeLogsDisplay = ({ taskId, currentUser }) => {
+    const [logs, setLogs] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const fetchLogs = async () => {
+            if (!taskId) return;
+            setLoading(true);
+            try {
+                const response = await axiosInstance.get(API_PATHS.TASKS.GET_TASK_TIMELOGS(taskId));
+                setLogs(response.data.timeLogs || []);
+            } catch (error) {
+                console.error("Failed to fetch time logs", error);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchLogs();
+    }, [taskId]);
+
+    const formatDuration = (ms) => {
+        const hours = Math.floor(ms / 3600000);
+        const minutes = Math.floor((ms % 3600000) / 60000);
+        return `${hours}h ${minutes}m`;
+    };
+
+    const handleViewAll = () => {
+        const path = currentUser.role === 'admin' 
+            ? `/admin/tasks/${taskId}/timelogs` 
+            : `/user/tasks/${taskId}/timelogs`;
+        navigate(path);
+    };
+
+    return (
+        <div>
+            <h4 className="text-sm font-semibold mb-2 text-slate-700">Time Logs</h4>
+            {loading ? (
+                <p className="text-xs text-slate-400">Loading logs...</p>
+            ) : logs.length > 0 ? (
+                <>
+                    <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                        {logs.slice(0, 4).map(log => (
+                            <li key={log._id} className="flex justify-between items-center text-sm p-2 bg-slate-100 rounded-md">
+                                <div className="flex items-center gap-2">
+                                    <img
+                                        src={log.user.profileImageUrl || `https://ui-avatars.com/api/?name=${log.user.name.replace(/\s/g, '+')}`}
+                                        alt={log.user.name}
+                                        className="w-6 h-6 rounded-full"
+                                    />
+                                    <span className="font-medium text-slate-600">{log.user.name}</span>
+                                </div>
+                                <div className="text-xs text-slate-500 font-semibold">
+                                    {formatDuration(log.duration)}
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                    {logs.length > 4 && (
+                        <button onClick={handleViewAll} className="text-xs text-primary font-semibold hover:underline mt-2">
+                            View all {logs.length} logs...
+                        </button>
+                    )}
+                </>
+            ) : (
+                <div className="text-center text-xs text-slate-400 py-4">
+                    <LuTimer className="mx-auto mb-1 text-2xl"/>
+                    No time logged for this task yet.
+                </div>
+            )}
+        </div>
+    );
+};
+
 const TaskRow = ({ task, onRowClick, onTaskUpdate, currentUser }) => {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [isTimerActive, setIsTimerActive] = useState(task.isTimerActiveForCurrentUser);
-    const [activeLogId, setActiveLogId] = useState(task.activeTimeLogId);
-
     const handleToggleExpand = (e) => { e.stopPropagation(); setIsExpanded(!isExpanded); };
 
     const canToggleTimer = currentUser?.role === 'admin' || task.assignedTo.some(u => u._id === currentUser?._id);
 
     const handleStartTimer = async (e) => {
         e.stopPropagation();
-        setIsTimerActive(true);
         try {
             const response = await axiosInstance.post(API_PATHS.TASKS.START_TIMER(task._id));
-            setActiveLogId(response.data.timeLogId);
             toast.success(`Timer started for "${task.title}"`);
-            onTaskUpdate();
+            onTaskUpdate(response.data.task);
         } catch (error) {
             toast.error("Failed to start timer.");
-            setIsTimerActive(false);
         }
     };
 
     const handleStopTimer = async (e) => {
         e.stopPropagation();
-        setIsTimerActive(false);
         try {
-            await axiosInstance.put(API_PATHS.TASKS.STOP_TIMER(task._id, activeLogId));
+            const response = await axiosInstance.put(API_PATHS.TASKS.STOP_TIMER(task._id, task.activeTimeLogId));
             toast.success(`Timer stopped for "${task.title}"`);
-            setActiveLogId(null);
-            onTaskUpdate();
+            onTaskUpdate(response.data.task);
         } catch (error) {
             toast.error("Failed to stop timer.");
-            setIsTimerActive(true);
         }
     };
 
@@ -156,13 +226,12 @@ const TaskRow = ({ task, onRowClick, onTaskUpdate, currentUser }) => {
         <>
             <tr onClick={onRowClick} className="bg-white border-b border-slate-200 hover:bg-slate-50 cursor-pointer">
                 <td className="px-4 py-2 text-center">
-                    {task.todoChecklist?.length > 0 && (
+                    {(task.todoChecklist?.length > 0 || (task.remarks && task.remarks.length > 0)) && (
                         <button onClick={handleToggleExpand} className="text-slate-400 hover:text-slate-700">
                             {isExpanded ? <IoChevronUpCircleOutline size={20} /> : <IoChevronDownCircleOutline size={20} />}
                         </button>
                     )}
                 </td>
-                
                 <td className="px-4 py-2 font-medium text-slate-800">
                     <div>{task.title}</div>
                     <div className="text-xs text-slate-500 font-normal">{task.project?.name}</div>
@@ -176,15 +245,15 @@ const TaskRow = ({ task, onRowClick, onTaskUpdate, currentUser }) => {
                 <td className="px-4 py-2">
                     <button
                         disabled={!canToggleTimer}
-                        onClick={isTimerActive ? handleStopTimer : handleStartTimer}
+                        onClick={task.isTimerActiveForCurrentUser ? handleStopTimer : handleStartTimer}
                         className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-2 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            isTimerActive 
+                            task.isTimerActiveForCurrentUser 
                             ? 'bg-red-100 text-red-700 hover:bg-red-200' 
                             : 'bg-green-100 text-green-700 hover:bg-green-200'
                         }`}
                     >
-                        {isTimerActive ? <LuCircleStop /> : <LuPlay />}
-                        {isTimerActive ? 'Stop' : 'Start'}
+                        {task.isTimerActiveForCurrentUser ? <LuCircleStop /> : <LuPlay />}
+                        {task.isTimerActiveForCurrentUser ? 'Stop' : 'Start'}
                     </button>
                 </td>
             </tr>
@@ -196,7 +265,6 @@ const TaskRow = ({ task, onRowClick, onTaskUpdate, currentUser }) => {
                                 <ChecklistSection task={task} onUpdate={onTaskUpdate} />
                             </div>
                             <div className="w-1/2 border-l border-slate-200 pl-6">
-                                {/* Pass the currentUser down */}
                                 <TaskTimeLogsDisplay taskId={task._id} currentUser={currentUser} />
                             </div>
                         </div>
@@ -249,83 +317,6 @@ const TaskTable = ({ tasks, onTaskUpdate, currentUser  }) => {
     );
 };
 
-// NEW: Sub-component to display time logs for a task
-const TaskTimeLogsDisplay = ({ taskId, currentUser }) => {
-    const [logs, setLogs] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
-
-    useEffect(() => {
-        const fetchLogs = async () => {
-            if (!taskId) return;
-            setLoading(true);
-            try {
-                const response = await axiosInstance.get(API_PATHS.TASKS.GET_TASK_TIMELOGS(taskId));
-                // We fetch all, but will only display a few
-                setLogs(response.data.timeLogs || []);
-            } catch (error) {
-                console.error("Failed to fetch time logs", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchLogs();
-    }, [taskId]);
-
-    const formatDuration = (ms) => {
-        const hours = Math.floor(ms / 3600000);
-        const minutes = Math.floor((ms % 3600000) / 60000);
-        return `${hours}h ${minutes}m`;
-    };
-
-    const handleViewAll = () => {
-        const path = currentUser.role === 'admin' 
-            ? `/admin/tasks/${taskId}/timelogs` 
-            : `/user/tasks/${taskId}/timelogs`;
-        navigate(path);
-    };
-
-    return (
-        <div>
-            <h4 className="text-sm font-semibold mb-2 text-slate-700">Time Logs</h4>
-            {loading ? (
-                <p className="text-xs text-slate-400">Loading logs...</p>
-            ) : logs.length > 0 ? (
-                <>
-                    <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                        {/* Only show the first 4 logs */}
-                        {logs.slice(0, 4).map(log => (
-                            <li key={log._id} className="flex justify-between items-center text-sm p-2 bg-slate-100 rounded-md">
-                                <div className="flex items-center gap-2">
-                                    <img
-                                        src={log.user.profileImageUrl || `https://ui-avatars.com/api/?name=${log.user.name.replace(/\s/g, '+')}`}
-                                        alt={log.user.name}
-                                        className="w-6 h-6 rounded-full"
-                                    />
-                                    <span className="font-medium text-slate-600">{log.user.name}</span>
-                                </div>
-                                <div className="text-xs text-slate-500 font-semibold">
-                                    {formatDuration(log.duration)}
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
-                    {/* Show "View All" button if there are more than 4 logs */}
-                    {logs.length > 4 && (
-                        <button onClick={handleViewAll} className="text-xs text-primary font-semibold hover:underline mt-2">
-                            View all {logs.length} logs...
-                        </button>
-                    )}
-                </>
-            ) : (
-                <div className="text-center text-xs text-slate-400 py-4">
-                    <LuTimer className="mx-auto mb-1 text-2xl"/>
-                    No time logged for this task yet.
-                </div>
-            )}
-        </div>
-    );
-};
 
 // =================================================================================
 // Main TaskListView Component
@@ -336,6 +327,7 @@ const TaskListView = () => {
     const { user: currentUser } = useContext(UserContext);
     const queryParams = new URLSearchParams(location.search);
 
+    const [showLiveTasks, setShowLiveTasks] = useState(false);
     const [displayedTasks, setDisplayedTasks] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [projects, setProjects] = useState([]);
@@ -358,6 +350,10 @@ const TaskListView = () => {
     }, [searchTerm]);
 
     const updateURL = useCallback(() => {
+        if (showLiveTasks) {
+            navigate({ search: '' }, { replace: true });
+            return;
+        }
         const params = new URLSearchParams();
         if (debouncedSearchTerm) params.set('search', debouncedSearchTerm);
         if (filterStatus && filterStatus !== 'All') params.set('status', filterStatus);
@@ -369,39 +365,42 @@ const TaskListView = () => {
             if (selectedUserId && selectedUserId !== 'all') params.set('assignedUserId', selectedUserId);
         }
         navigate({ search: params.toString() }, { replace: true });
-    }, [debouncedSearchTerm, filterStatus, selectedProject, sortBy, selectedUserId, dueDateFilter, createdDateFilter, navigate, currentUser?.role]);
+    }, [debouncedSearchTerm, filterStatus, selectedProject, sortBy, selectedUserId, dueDateFilter, createdDateFilter, navigate, currentUser?.role, showLiveTasks]);
 
     const fetchTasksAndCounts = useCallback(async () => {
         setIsLoading(true);
         try {
-            const response = await axiosInstance.get(`${API_PATHS.TASKS.GET_ALL_TASKS}${location.search}`);
+            let response;
+            if (showLiveTasks) {
+                response = await axiosInstance.get(API_PATHS.TASKS.GET_LIVE_TASKS);
+                setTabs([]);
+            } else {
+                response = await axiosInstance.get(`${API_PATHS.TASKS.GET_ALL_TASKS}${location.search}`);
+                const statusSummary = response.data?.statusSummary || {};
+                setTabs([
+                    { label: "All", count: statusSummary.all || 0 },
+                    { label: "Overdue", count: statusSummary.overdueTasks || 0 },
+                    { label: "Pending", count: statusSummary.pendingTasks || 0 },
+                    { label: "In Progress", count: statusSummary.inProgressTasks || 0 },
+                    { label: "Completed", count: statusSummary.completedTasks || 0 },
+                ]);
+            }
             const cleanTasks = (response.data?.tasks || []).filter(task => task && task._id);
             setDisplayedTasks(cleanTasks);
-            const statusSummary = response.data?.statusSummary || {};
-            setTabs([
-                { label: "All", count: statusSummary.all || 0 },
-                { label: "Overdue", count: statusSummary.overdueTasks || 0 },
-                { label: "Pending", count: statusSummary.pendingTasks || 0 },
-                { label: "In Progress", count: statusSummary.inProgressTasks || 0 },
-                { label: "Completed", count: statusSummary.completedTasks || 0 },
-            ]);
         } catch (error) {
-            console.error("Error fetching tasks:", error);
             toast.error("Could not load tasks.");
         } finally {
             setIsLoading(false);
         }
-    }, [location.search]);
+    }, [location.search, showLiveTasks]);
     
     useEffect(() => {
         updateURL();
-    }, [updateURL]);
+    }, [updateURL, showLiveTasks]);
 
     useEffect(() => {
-        // This effect re-fetches data whenever any filter changes.
-        // It relies on the URL being the single source of truth.
         fetchTasksAndCounts();
-    }, [location.search]); // Simplified dependency array to just location.search
+    }, [location.search, showLiveTasks]);
 
     useEffect(() => {
         const projectEndpoint = currentUser?.role === 'admin' ? API_PATHS.PROJECTS.GET_ALL_PROJECTS : API_PATHS.PROJECTS.GET_MY_PROJECTS;
@@ -423,85 +422,98 @@ const TaskListView = () => {
 
     return (
         <>
-            <fieldset disabled={isLoading} className={`my-5 p-4 bg-white rounded-lg shadow-sm disabled:opacity-50 transition`}>
-                <div className="mb-4">
-                     <input
-                        type="text"
-                        placeholder="Search by task title or description..."
-                        className="form-input w-full"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+            {currentUser?.role === 'admin' && (
+                <div className="flex justify-end items-center gap-2 mb-4">
+                    <LuRadioTower className={`transition-colors ${showLiveTasks ? 'text-red-500' : 'text-slate-400'}`} />
+                    <span className="text-sm font-semibold">Live Tasks</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" checked={showLiveTasks} onChange={() => setShowLiveTasks(!showLiveTasks)} className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                    </label>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">Project</label>
-                        <select className="form-input text-sm w-full" value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}>
-                            <option value="all">All Projects</option>
-                            {projects.map((project) => (<option key={project._id} value={project._id}>{project.name}</option>))}
-                        </select>
-                    </div>
-                    {currentUser?.role === 'admin' && (
-                        <>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1">Sort By</label>
-                                <select className="form-input text-sm w-full" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                                    <option value="createdAt">Most Recent</option>
-                                    <option value="hours">Most Hours Logged</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-600 mb-1">Assigned To</label>
-                                <select className="form-input text-sm w-full" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
-                                    <option value="all">All Users</option>
-                                    {users.map((user) => (<option key={user._id} value={user._id}>{user.name}</option>))}
-                                </select>
-                            </div>
-                        </>
-                    )}
-                    <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">Due Date</label>
-                        <div className="relative">
-                            <input type="date" className="form-input text-sm w-full pr-10" value={dueDateFilter} onChange={(e) => setDueDateFilter(e.target.value)} />
-                            {dueDateFilter && (<button onClick={() => setDueDateFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><FaTimes /></button>)}
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">Created Date</label>
-                        <div className="relative">
-                            <input type="date" className="form-input text-sm w-full pr-10" value={createdDateFilter} onChange={(e) => setCreatedDateFilter(e.target.value)} />
-                            {createdDateFilter && (<button onClick={() => setCreatedDateFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><FaTimes /></button>)}
-                        </div>
-                    </div>
-                </div>
-                <div className="mt-4 text-right">
-                    <button onClick={handleClearFilters} className="text-sm text-blue-600 hover:underline font-medium">Clear All Filters</button>
-                </div>
-            </fieldset>
+            )}
 
-            <div className="flex items-center gap-3 mt-4">
-                <TaskStatusTab tabs={tabs} activeTab={filterStatus} setActiveTab={setFilterStatus} />
-            </div>
+            {!showLiveTasks && (
+                <>
+                    <fieldset disabled={isLoading} className={`p-4 bg-white rounded-lg shadow-sm disabled:opacity-50 transition`}>
+                        <div className="mb-4">
+                            <input
+                                type="text"
+                                placeholder="Search by task title or description..."
+                                className="form-input w-full"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Project</label>
+                                <select className="form-input text-sm w-full" value={selectedProject} onChange={(e) => setSelectedProject(e.target.value)}>
+                                    <option value="all">All Projects</option>
+                                    {projects.map((project) => (<option key={project._id} value={project._id}>{project.name}</option>))}
+                                </select>
+                            </div>
+                            {currentUser?.role === 'admin' && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">Sort By</label>
+                                        <select className="form-input text-sm w-full" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                                            <option value="createdAt">Most Recent</option>
+                                            <option value="hours">Most Hours Logged</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-slate-600 mb-1">Assigned To</label>
+                                        <select className="form-input text-sm w-full" value={selectedUserId} onChange={(e) => setSelectedUserId(e.target.value)}>
+                                            <option value="all">All Users</option>
+                                            {users.map((user) => (<option key={user._id} value={user._id}>{user.name}</option>))}
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Due Date</label>
+                                <div className="relative">
+                                    <input type="date" className="form-input text-sm w-full pr-10" value={dueDateFilter} onChange={(e) => setDueDateFilter(e.target.value)} />
+                                    {dueDateFilter && (<button onClick={() => setDueDateFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><FaTimes /></button>)}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-600 mb-1">Created Date</label>
+                                <div className="relative">
+                                    <input type="date" className="form-input text-sm w-full pr-10" value={createdDateFilter} onChange={(e) => setCreatedDateFilter(e.target.value)} />
+                                    {createdDateFilter && (<button onClick={() => setCreatedDateFilter('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"><FaTimes /></button>)}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-4 text-right">
+                            <button onClick={handleClearFilters} className="text-sm text-blue-600 hover:underline font-medium">Clear All Filters</button>
+                        </div>
+                    </fieldset>
+                    <div className="flex items-center gap-3 mt-4">
+                        <TaskStatusTab tabs={tabs} activeTab={filterStatus} setActiveTab={setFilterStatus} />
+                    </div>
+                </>
+            )}
 
             <div className='mt-4'>
                 {isLoading ? (
                     <div className="text-center py-20 text-gray-500">Loading tasks...</div>
                 ) : displayedTasks.length > 0 ? (
-                    // AFTER (The correct, fast version)
                     <TaskTable 
                         tasks={displayedTasks} 
                         currentUser={currentUser}
                         onTaskUpdate={(updatedTask) => {
-                            setDisplayedTasks(prevTasks => 
-                                prevTasks.map(task => 
-                                    task._id === updatedTask._id ? updatedTask : task
-                                )
-                            );
-                        }} 
+                            if (showLiveTasks && !updatedTask.isTimerActiveForCurrentUser) {
+                                setDisplayedTasks(prev => prev.filter(t => t._id !== updatedTask._id));
+                            } else {
+                                setDisplayedTasks(prev => prev.map(t => t._id === updatedTask._id ? updatedTask : t));
+                            }
+                        }}
                     />
                 ) : (
                     <div className="text-center py-20 text-gray-500 bg-white rounded-lg shadow-sm border border-slate-200">
-                        No tasks match the current filters.
+                        {showLiveTasks ? 'No tasks are currently being worked on.' : 'No tasks match the current filters.'}
                     </div>
                 )}
             </div>

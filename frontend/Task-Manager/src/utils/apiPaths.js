@@ -26,6 +26,7 @@ export const API_PATHS={
         GET_DASHBOARD_DATA:"/api/tasks/dashboard-data", //Get Dashboard Data
         GET_USER_DASHBOARD_DATA:"/api/tasks/user-dashboard-data", //Get User Dashboard
         GET_ALL_TASKS:"/api/tasks", //Get all Tasks(admin:all, User:only assigned)
+        GET_LIVE_TASKS: "/api/tasks/live",
         GET_TASK_BY_ID:(taskId)=>`/api/tasks/${taskId}`, //Get task by ID
         CREATE_TASK:"/api/tasks",//Create a new Task(Admin Only)
         GET_TASKS_FOR_USER: (userId) => `/api/tasks/user/${userId}`, // Get tasks for a specific user (Admin only)

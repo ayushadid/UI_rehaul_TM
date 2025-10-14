@@ -36,6 +36,7 @@ import ProjectDashboard from './pages/Admin/ProjectDashboard';
 import ProjectDetailsPage from './pages/Admin/ProjectDetailsPage';
 import CreateAnnouncement from './pages/Admin/CreateAnnouncement';
 import ProfilePage from './pages/Shared/ProfilePage';
+import UserProjectDetails from './pages/User/UserProjectDetails';
 
 const App = () => {
     return (
@@ -57,7 +58,7 @@ const App = () => {
                             <Route path="/admin/my-day-view" element={<DailyLogChart />} />
                             <Route path="/admin/users/:userId/tasks" element={<UserTasksDetails />} />
                             <Route path="/admin/tasks/:taskId/timelogs" element={<TaskTimeLogsPage />} />
-                            <Route path="/projects/:projectId/details" element={<ProjectDetailsPage />} /> {/* 👈 ADD THIS LINE */}
+                            <Route path="/admin/projects/:projectId/details" element={<ProjectDetailsPage />} />
                             <Route path="/admin/create-announcement" element={<CreateAnnouncement />} />
                         </Route>
 
@@ -65,9 +66,11 @@ const App = () => {
                         <Route element={<PrivateRoute allowedRoles={["member"]} />}>
                             <Route path="/user/dashboard" element={<UserDashboard />} />
                             <Route path="/user/tasks" element={<TaskListView />} />
+                            <Route path="/projects/:projectId/details" element={<UserProjectDetails />} /> 
                             <Route path="/user/my-day-view" element={<UserDailyLogChart />} />
                             <Route path="/user/task-details/:id" element={<ViewTaskDetails />} />
                             <Route path="/user/tasks/:taskId/timelogs" element={<TaskTimeLogsPage />} />
+                            <Route path="/user/projects/:projectId/details" element={<UserProjectDetails />} />
                         </Route>
 
                         {/* Shared Routes for both Admin and User */}
@@ -79,6 +82,8 @@ const App = () => {
                             <Route path="/gantt/:projectId?" element={<GanttChartPage />} />
                             <Route path="/shared-sheet" element={<SharedSheet />} />
                             <Route path="/profile" element={<ProfilePage />} />
+                            <Route path="/board" element={<ProjectBoard />} />
+
                         </Route>
                     </Route>
                     {/* --- END: New Protected Route Structure --- */}

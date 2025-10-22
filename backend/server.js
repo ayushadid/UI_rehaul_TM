@@ -6,10 +6,10 @@ const connectDB = require("./config/db");
 const http = require('http');
 const { Server } = require("socket.io");
 
-// --- START: 1. Import Models needed for Socket.IO ---
+// --- START: Import Models needed for Socket.IO ---
 const Project = require("./models/Project");
 const Task = require("./models/Task");
-// --- END: 1. ---
+// --- END: ---
 
 // Import all your route files
 const authRoutes = require("./routes/authRoutes");
@@ -21,7 +21,8 @@ const timelogRoutes = require("./routes/timelogRoutes");
 const aiRoutes = require("./routes/aiRoutes");
 const performanceRoutes = require("./routes/performanceRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
-const announcementRoutes = require("./routes/announcementRoutes"); 
+const announcementRoutes = require("./routes/announcementRoutes");
+const pushRoutes = require("./routes/pushRoutes"); // Added missing pushRoutes
 
 const app = express();
 const server = http.createServer(app);
@@ -32,7 +33,7 @@ const io = new Server(server, {
       "https://adidmanager.onrender.com",
       "http://localhost:5173",
       "http://192.168.1.5:5173",
-      "https://tmadid.thedevdesigner.site/"
+      "https://tmadid.thedevdesigner.site/" // Added new origin
     ],
     methods: ["GET", "POST"],
     credentials: true
@@ -43,9 +44,9 @@ app.use(
   cors({
     origin: [
       "https://adidmanager.onrender.com",
-      "http://localhost:5173",   
+      "http://localhost:5173",
       "http://192.168.1.5:5173",
-      "https://tmadid.thedevdesigner.site/"       
+      "https://tmadid.thedevdesigner.site/" // Added new origin
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,
@@ -56,8 +57,8 @@ connectDB();
 
 app.use(express.json());
 
-// --- START: 2. Modified Socket.IO Connection Logic ---
-const userSocketMap = {}; 
+// --- START: Modified Socket.IO Connection Logic ---
+const userSocketMap = {};
 
 io.on('connection', (socket) => {
   console.log('🔌 A user connected:', socket.id);
@@ -73,7 +74,7 @@ io.on('connection', (socket) => {
             Project.find({ members: userId }).select('_id'),
             Task.distinct('project', { assignedTo: userId })
         ]);
-        
+
         const allProjectIds = [
             ...projectsByMembership.map(p => p._id.toString()),
             ...projectIdsByTask.map(id => id.toString())
@@ -90,7 +91,7 @@ io.on('connection', (socket) => {
     }
     // --- End of new block ---
   });
-  
+
   socket.on('disconnect', () => {
     console.log('🔌 User disconnected:', socket.id);
     for (const userId in userSocketMap) {
@@ -101,8 +102,9 @@ io.on('connection', (socket) => {
     }
   });
 });
-// --- END: 2. ---
+// --- END: ---
 
+// Middleware to make io and userSocketMap available in controllers
 app.use((req, res, next) => {
     req.io = io;
     req.userSocketMap = userSocketMap;
@@ -119,9 +121,10 @@ app.use("/api/timelogs", timelogRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/performance", performanceRoutes);
 app.use("/api/notifications", notificationRoutes);
-app.use("/api/push", require("./routes/pushRoutes"));
+app.use("/api/push", pushRoutes); // Corrected usage
 app.use("/api/announcements", announcementRoutes);
 
+// Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 const PORT = process.env.PORT || 5000;

@@ -33,7 +33,7 @@ const io = new Server(server, {
       "https://adidmanager.onrender.com",
       "http://localhost:5173",
       "http://192.168.1.5:5173",
-      "https://tmadid.thedevdesigner.site/" // Added new origin
+      "https://tmadid.thedevdesigner.site" // Added new origin
     ],
     methods: ["GET", "POST"],
     credentials: true
@@ -46,7 +46,7 @@ app.use(
       "https://adidmanager.onrender.com",
       "http://localhost:5173",
       "http://192.168.1.5:5173",
-      "https://tmadid.thedevdesigner.site/" // Added new origin
+      "https://tmadid.thedevdesigner.site" // Added new origin
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,

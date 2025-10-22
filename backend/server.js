@@ -30,7 +30,9 @@ const io = new Server(server, {
   cors: {
     origin: [
       "https://adidmanager.onrender.com",
-      "http://localhost:5173"
+      "http://localhost:5173",
+      "http://192.168.1.5:5173",
+      "https://tmadid.thedevdesigner.site/"
     ],
     methods: ["GET", "POST"],
     credentials: true
@@ -42,7 +44,8 @@ app.use(
     origin: [
       "https://adidmanager.onrender.com",
       "http://localhost:5173",   
-      "http://192.168.1.5:5173",       
+      "http://192.168.1.5:5173",
+      "https://tmadid.thedevdesigner.site/"       
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     credentials: true,

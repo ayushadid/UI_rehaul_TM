@@ -3,58 +3,60 @@ import { useParams, Link } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosinstance';
 import { API_PATHS } from '../../utils/apiPaths';
 import toast from 'react-hot-toast';
-import { LuX, LuPlus, LuTrash2, LuExternalLink } from 'react-icons/lu';
+import { LuX, LuPlus, LuTrash2, LuExternalLink,LuFolderKanban  } from 'react-icons/lu';
 import { UserContext } from '../../context/userContext';
 
 // =================================================================================
 // == Main UserTasksDetails Component
 // =================================================================================
+
 const UserTasksDetails = () => {
     const { userId } = useParams();
     const [userTasks, setUserTasks] = useState([]);
+    const [userProjects, setUserProjects] = useState([]);
     const [loading, setLoading] = useState(true);
     const [userName, setUserName] = useState("Selected User");
     const [userAvatar, setUserAvatar] = useState('');
     const [selectedTask, setSelectedTask] = useState(null);
 
-    const fetchUserTasks = useCallback(async () => {
-        // This function now only sets loading for the initial fetch
-        if (loading) {
-            try {
-                const response = await axiosInstance.get(API_PATHS.TASKS.GET_TASKS_FOR_USER(userId));
-                const tasks = response.data?.tasks || [];
-                setUserTasks(tasks);
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            const [tasksRes, projectsRes] = await Promise.all([
+                axiosInstance.get(API_PATHS.TASKS.GET_TASKS_FOR_USER(userId)),
+                axiosInstance.get(API_PATHS.USERS.GET_USER_PROJECTS(userId))
+            ]);
 
-                if (tasks.length > 0) {
-                    const user = tasks.find(t => t.assignedTo.some(u => u._id === userId))?.assignedTo.find(u => u._id === userId);
-                    if (user) {
-                        setUserName(user.name);
-                        setUserAvatar(user.profileImageUrl);
-                    }
+            const tasks = tasksRes.data?.tasks || [];
+            setUserTasks(tasks);
+            setUserProjects(projectsRes.data || []);
+
+            if (tasks.length > 0) {
+                const user = tasks[0].assignedTo.find(u => u._id === userId);
+                if (user) {
+                    setUserName(user.name);
+                    setUserAvatar(user.profileImageUrl);
                 }
-            } catch (err) {
-                toast.error("Failed to load user tasks.");
-            } finally {
-                setLoading(false);
+            } else {
+                // Future enhancement: Fetch user details separately if they have no tasks
             }
-        } else {
-             // For subsequent refreshes, just get the data
-            const response = await axiosInstance.get(API_PATHS.TASKS.GET_TASKS_FOR_USER(userId));
-            setUserTasks(response.data?.tasks || []);
+        } catch (err) {
+            toast.error("Failed to load user details.");
+        } finally {
+            setLoading(false);
         }
-    }, [userId, loading]);
-
-    useEffect(() => {
-        fetchUserTasks();
     }, [userId]);
 
-    const handleTaskUpdate = async () => {
-        const response = await axiosInstance.get(API_PATHS.TASKS.GET_TASKS_FOR_USER(userId));
-        const updatedTasks = response.data?.tasks || [];
-        setUserTasks(updatedTasks);
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
 
+    const handleTaskUpdate = async () => {
+        // After an update, re-fetch all data to ensure consistency
+        await fetchData();
         if (selectedTask) {
-            const freshTaskData = updatedTasks.find(t => t._id === selectedTask._id);
+            const response = await axiosInstance.get(API_PATHS.TASKS.GET_TASKS_FOR_USER(userId));
+            const freshTaskData = (response.data?.tasks || []).find(t => t._id === selectedTask._id);
             setSelectedTask(freshTaskData || null);
         }
     };
@@ -63,13 +65,17 @@ const UserTasksDetails = () => {
         <div className={`flex transition-all duration-300 ${selectedTask ? 'pr-[28rem]' : ''}`}>
             <div className="flex-1 min-w-0">
                 <div className="p-6">
+                    {/* User Info Header */}
                     <div className="flex items-center gap-4 mb-6">
                         <img src={userAvatar || `https://ui-avatars.com/api/?name=${userName.replace(/\s/g, '+')}`} alt={userName} className="w-16 h-16 rounded-full object-cover"/>
                         <div>
-                            <p className="text-xs text-slate-500">Tasks for</p>
+                            <p className="text-xs text-slate-500">Details for</p>
                             <h2 className="text-2xl font-bold text-gray-800">{userName}</h2>
                         </div>
                     </div>
+                    
+                    {/* NEW: Project Info Card */}
+                    {!loading && <ProjectsInfo projects={userProjects} />}
 
                     {loading ? (
                         <p className="text-center py-10 text-slate-500">Loading tasks...</p>
@@ -91,6 +97,29 @@ const UserTasksDetails = () => {
     );
 };
 
+const ProjectsInfo = ({ projects }) => {
+    if (!projects || projects.length === 0) {
+        return null; // Don't render the card if the user has no projects
+    }
+    return (
+        <div className="card mb-6">
+            <h3 className="text-lg font-semibold text-slate-700 mb-3">Associated Projects</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {projects.map(project => (
+                    <div key={project._id} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <div className="flex items-center gap-2">
+                            <LuFolderKanban className="text-primary"/>
+                            <span className="font-semibold text-slate-800">{project.name}</span>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">
+                            {project.taskCount} {project.taskCount === 1 ? 'task' : 'tasks'} assigned in this project
+                        </p>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
 // =================================================================================
 // == Sub-Component: TaskTable
 // =================================================================================

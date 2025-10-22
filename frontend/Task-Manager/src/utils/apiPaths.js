@@ -18,6 +18,7 @@ export const API_PATHS={
         GET_USER_BY_ID: (userId)=>`/api/users/${userId}`, //Get user by Id
         CREATE_USER: "/api/users", //Create a new user (admin only)
         GET_MANAGE_USERS: "/api/users/manage", // 👈 ADD THIS
+        GET_USER_PROJECTS: (userId) => `/api/users/${userId}/projects`,
         UPDATE_ROLE: (userId) => `/api/users/${userId}/role`, // 👈 ADD THIS
         DELETE_USER: (userId) => `/api/users/${userId}`, 
     },
@@ -64,6 +65,9 @@ export const API_PATHS={
         CREATE_PROJECT: "/api/projects", // To create a new project
         GET_MY_PROJECTS: "/api/projects", // To get projects for the logged-in user
         GET_ALL_PROJECTS: "/api/projects/all", // To get all projects (Admin Only)
+        GET_MESSAGES: (projectId) => `/api/projects/${projectId}/messages`, // 👈 ADD THIS
+        POST_MESSAGE: (projectId) => `/api/projects/${projectId}/messages`,
+        ADD_MEMBERS: (projectId) => `/api/projects/${projectId}/members`,
         GET_GANTT_DATA: (projectId) => `/api/projects/${projectId}/gantt`,
   },
      AI: {

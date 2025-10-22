@@ -23,6 +23,7 @@ const Header = ({ activeMenu }) => {
     { label: 'Dashboard', path: `/projects/${projectId}/dashboard` },
     { label: 'List', path: `${taskListPath}?projectId=${projectId}` },
     { label: 'Board', path: `/projects/${projectId}/board` },
+    { label: 'Chat' , path: `/projects/${projectId}/chat` },
     { 
       label: 'Details', 
       path: user?.role === 'admin' 

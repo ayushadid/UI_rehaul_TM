@@ -37,6 +37,7 @@ import ProjectDetailsPage from './pages/Admin/ProjectDetailsPage';
 import CreateAnnouncement from './pages/Admin/CreateAnnouncement';
 import ProfilePage from './pages/Shared/ProfilePage';
 import UserProjectDetails from './pages/User/UserProjectDetails';
+import ProjectChatPage from './pages/Shared/ProjectChatPage';
 
 const App = () => {
     return (
@@ -77,12 +78,14 @@ const App = () => {
                         <Route element={<PrivateRoute allowedRoles={["admin", "member"]} />}>
                             <Route path="/projects/:projectId/dashboard" element={<ProjectDashboard />} /> {/* 👈 ADD THIS LINE */}
                             <Route path="/projects/:projectId/board" element={<ProjectBoard />} />
+                            <Route path="/projects/:projectId/chat" element={<ProjectChatPage />} />
                             <Route path="/projects/:projectId/calendar" element={<TaskCalendar />} />
                             <Route path="/notifications" element={<NotificationsPage />} />
                             <Route path="/gantt/:projectId?" element={<GanttChartPage />} />
                             <Route path="/shared-sheet" element={<SharedSheet />} />
                             <Route path="/profile" element={<ProfilePage />} />
                             <Route path="/board" element={<ProjectBoard />} />
+                            
 
                         </Route>
                     </Route>

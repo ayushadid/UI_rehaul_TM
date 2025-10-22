@@ -1,7 +1,9 @@
+const mongoose = require('mongoose');
+
 const Task=require("../models/Task");
 const User=require("../models/User");
 const bcrypt=require("bcryptjs");
-
+const Project = require('../models/Project'); 
 
 //@desc Get All Users (admin)
 //@route GET /api/users/
@@ -164,4 +166,64 @@ const deleteUserById = async (req, res) => {
         res.status(500).json({ message: "Server Error", error: error.message });
     }
 };
-module.exports={getUsers,getUserById, getManageUsers, updateUserRole, deleteUserById};
+
+/**
+ * @desc    Get all projects for a specific user by ID
+ * @route   GET /api/users/:userId/projects
+ * @access  Private (Admin Only)
+ */
+const getUserProjects = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const userObjectId = new mongoose.Types.ObjectId(userId);
+
+        // Find all projects the user is involved in (by membership or task assignment)
+        const [projectsByMembership, projectIdsByTask] = await Promise.all([
+            Project.find({ members: userObjectId }).select('_id name'),
+            Task.distinct('project', { assignedTo: userObjectId })
+        ]);
+
+        const projectMap = new Map();
+        projectsByMembership.forEach(p => projectMap.set(p._id.toString(), { _id: p._id, name: p.name }));
+        
+        const allRelevantProjectIdsStrings = new Set([
+            ...projectsByMembership.map(p => p._id.toString()),
+            ...projectIdsByTask.map(id => id.toString())
+        ]);
+        const allRelevantProjectIds = Array.from(allRelevantProjectIdsStrings).map(id => new mongoose.Types.ObjectId(id));
+
+        // Get the count of tasks assigned to THIS user for EACH of those projects
+        const taskCounts = await Task.aggregate([
+            { $match: { project: { $in: allRelevantProjectIds }, assignedTo: userObjectId } },
+            { $group: { _id: '$project', count: { $sum: 1 } } }
+        ]);
+        
+        const taskCountMap = new Map();
+        taskCounts.forEach(item => taskCountMap.set(item._id.toString(), item.count));
+
+        // Ensure we have the names for all projects
+        const projectsToFetch = allRelevantProjectIds.filter(id => !projectMap.has(id.toString()));
+        if (projectsToFetch.length > 0) {
+            const extraProjects = await Project.find({ _id: { $in: projectsToFetch } }).select('_id name');
+            extraProjects.forEach(p => projectMap.set(p._id.toString(), { _id: p._id, name: p.name }));
+        }
+
+        // Combine project info with task counts and sort by the most tasks
+        const projectsWithCounts = Array.from(projectMap.values()).map(project => ({
+            ...project,
+            taskCount: taskCountMap.get(project._id.toString()) || 0
+        })).sort((a, b) => b.taskCount - a.taskCount);
+
+        res.json(projectsWithCounts);
+    } catch (error) {
+        console.error("Error getting projects for user:", error);
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
+module.exports={getUsers,
+    getUserById, 
+    getManageUsers, 
+    updateUserRole, 
+    deleteUserById, 
+    getUserProjects};

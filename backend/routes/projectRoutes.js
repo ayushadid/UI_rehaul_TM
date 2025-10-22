@@ -7,9 +7,17 @@ const {
     getProjectById,
     updateProject,
     getProjectGanttData,
-    getMemberProjectById 
+    getMemberProjectById,
+    addProjectMembers
 } = require("../controllers/projectController");
+
+const { getProjectMessages,
+        postProjectMessage 
+} = require("../controllers/projectMessageController");
+
 const { protect, adminOnly } = require("../middlewares/authMiddleware");
+
+
 
 // SPECIFIC ROUTES FIRST
 // GET /api/projects/all (For Admins to get all projects)
@@ -33,5 +41,11 @@ router.route("/:id")
     .put(protect, adminOnly, updateProject);
     
 router.get("/member/:id", protect, getMemberProjectById); // 👈 ADD THIS
+
+router.route("/:projectId/messages")
+    .get(protect, getProjectMessages)
+    .post(protect, postProjectMessage)
+
+router.put("/:id/members", protect, addProjectMembers); // 👈 ADD THIS
 
 module.exports = router;

@@ -3,8 +3,13 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const connectDB = require("./config/db");
-const http = require('http'); // 👈 1. Import Node's built-in HTTP module
-const { Server } = require("socket.io"); // 👈 2. Import the Server class from socket.io
+const http = require('http');
+const { Server } = require("socket.io");
+
+// --- START: 1. Import Models needed for Socket.IO ---
+const Project = require("./models/Project");
+const Task = require("./models/Task");
+// --- END: 1. ---
 
 // Import all your route files
 const authRoutes = require("./routes/authRoutes");
@@ -18,11 +23,9 @@ const performanceRoutes = require("./routes/performanceRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
 const announcementRoutes = require("./routes/announcementRoutes"); 
 
-
 const app = express();
-const server = http.createServer(app); // 👈 3. Create an HTTP server from your Express app
+const server = http.createServer(app);
 
-// 👈 4. Configure Socket.IO to work with the new server
 const io = new Server(server, {
   cors: {
     origin: [
@@ -34,39 +37,57 @@ const io = new Server(server, {
   }
 });
 
-
-// Middleware to handle CORS
 app.use(
   cors({
     origin: [
-      "https://adidmanager.onrender.com", // your frontend URL
-      "http://localhost:5173",  
-      "http://192.168.1.5:5173",          // local dev (optional)
+      "https://adidmanager.onrender.com",
+      "http://localhost:5173",   
+      "http://192.168.1.5:5173",       
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    credentials: true, // important if using cookies or auth tokens
+    credentials: true,
   })
 );
 
-// Connect to database
 connectDB();
 
-// Middleware
 app.use(express.json());
 
-// --- START: Socket.IO Connection Logic ---
-const userSocketMap = {}; // This object will map a userId to their unique socket.id
+// --- START: 2. Modified Socket.IO Connection Logic ---
+const userSocketMap = {}; 
 
 io.on('connection', (socket) => {
   console.log('🔌 A user connected:', socket.id);
 
-  // When a user logs in, the frontend will emit this 'setup' event
-  socket.on('setup', (userId) => {
+  // Use the 'setup' event name you already have
+  socket.on('setup', async (userId) => {
     userSocketMap[userId] = socket.id;
     console.log(`User ${userId} is now connected with socket ID ${socket.id}`);
+
+    // --- Add this block to join project rooms ---
+    try {
+        const [projectsByMembership, projectIdsByTask] = await Promise.all([
+            Project.find({ members: userId }).select('_id'),
+            Task.distinct('project', { assignedTo: userId })
+        ]);
+        
+        const allProjectIds = [
+            ...projectsByMembership.map(p => p._id.toString()),
+            ...projectIdsByTask.map(id => id.toString())
+        ];
+        const uniqueProjectIds = [...new Set(allProjectIds)];
+
+        uniqueProjectIds.forEach(projectId => {
+            socket.join(projectId);
+            console.log(`Socket ${socket.id} for user ${userId} joined project room ${projectId}`);
+        });
+
+    } catch (error) {
+        console.error('Error joining project rooms:', error);
+    }
+    // --- End of new block ---
   });
   
-  // Clean up the map when a user disconnects
   socket.on('disconnect', () => {
     console.log('🔌 User disconnected:', socket.id);
     for (const userId in userSocketMap) {
@@ -77,10 +98,8 @@ io.on('connection', (socket) => {
     }
   });
 });
-// --- END: Socket.IO Logic ---
+// --- END: 2. ---
 
-
-// 👈 5. Add middleware to make 'io' and the user map available in all controllers
 app.use((req, res, next) => {
     req.io = io;
     req.userSocketMap = userSocketMap;
@@ -100,14 +119,11 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/push", require("./routes/pushRoutes"));
 app.use("/api/announcements", announcementRoutes);
 
-// Serve uploaded files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Start server
 const PORT = process.env.PORT || 5000;
 const HOST = "0.0.0.0";
 
-// 👈 6. Change app.listen to server.listen to start the server with WebSocket capabilities
 server.listen(PORT, HOST, () => {
   console.log(`🚀 Server running at http://${HOST}:${PORT}`);
 });

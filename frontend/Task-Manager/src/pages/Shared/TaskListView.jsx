@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState, useCallback } from 'react';
+import React, { useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axiosInstance from '../../utils/axiosinstance';
 import { API_PATHS } from '../../utils/apiPaths';
@@ -13,12 +13,73 @@ import AiCommandInterface from '../../components/AiCommandInterface.jsx';
 import { FaTimes } from 'react-icons/fa';
 import { IoChevronDownCircleOutline, IoChevronUpCircleOutline } from "react-icons/io5";
 import { GoDotFill } from "react-icons/go";
-import { LuPlay, LuCircleStop, LuRadioTower, LuTimer } from 'react-icons/lu';
+import { LuPlay, LuCircleStop, LuRadioTower, LuTimer, LuSend } from 'react-icons/lu';
 
 
 // =================================================================================
 // Reusable UI Sub-Components
 // =================================================================================
+
+// --- NEW: Interactive Review Status Component ---
+const InteractiveReviewStatus = ({ task, currentUser, onTaskUpdate }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    const isAssigned = task.assignedTo.some(u => u._id === currentUser?._id);
+    const canSubmit = isAssigned && (task.reviewStatus === 'NotSubmitted' || task.reviewStatus === 'ChangesRequested');
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+
+    const handleSubmitForReview = async (e) => {
+        e.stopPropagation();
+        setIsOpen(false); // Close dropdown immediately
+        try {
+            const response = await axiosInstance.put(API_PATHS.TASKS.SUBMIT_FOR_REVIEW(task._id));
+            toast.success("Task submitted for review!");
+            onTaskUpdate(response.data.task); // Update local state
+        } catch (error) {
+            toast.error(error.response?.data?.message || "Failed to submit for review.");
+        }
+    };
+
+    if (!canSubmit) {
+        // If user cannot submit, just show the static pill
+        return <ReviewStatusPill task={task} />;
+    }
+
+    // If user can submit, make the pill interactive
+    return (
+        <div className="relative" ref={dropdownRef}>
+            <button 
+                onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} 
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+            >
+                <ReviewStatusPill task={task} />
+            </button>
+            {isOpen && (
+                 <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-10">
+                    <div className="py-1">
+                        <button 
+                            onClick={handleSubmitForReview} 
+                            className="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                            <LuSend size={14}/> Submit for Review
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const AvatarStack = ({ users = [] }) => {
     if (!users || users.length === 0) {
@@ -104,17 +165,21 @@ const ReviewStatusPill = ({ task }) => {
     if (!task.reviewers || task.reviewers.length === 0) {
         return <span className="text-slate-400 text-xs">N/A</span>;
     }
+
     const statuses = {
-        NotSubmitted: { text: 'Not Submitted', color: 'bg-slate-100 text-slate-500' },
-        PendingReview: { text: 'Pending Review', color: 'bg-orange-100 text-orange-700' },
-        PendingFinalApproval: { text: 'Pending Approval', color: 'bg-orange-100 text-orange-700' },
-        ChangesRequested: { text: 'Changes Requested', color: 'bg-amber-100 text-amber-700' },
-        Approved: { text: 'Approved', color: 'bg-lime-100 text-lime-700' },
+        NotSubmitted: { text: 'Not Submitted', color: 'bg-slate-100 text-slate-600' }, // Grey
+        PendingReview: { text: 'Pending Review', color: 'bg-orange-100 text-orange-700' }, // Orange
+        PendingFinalApproval: { text: 'Pending Approval', color: 'bg-yellow-100 text-yellow-700' }, // Yellow/Amber
+        ChangesRequested: { text: 'Changes Requested', color: 'bg-amber-100 text-amber-700' }, // Amber
+        Approved: { text: 'Approved', color: 'bg-green-100 text-green-700' }, // Green
     };
+
     const display = statuses[task.reviewStatus] || statuses.NotSubmitted;
+
     return <span className={`px-2 py-1 text-xs font-semibold rounded-full inline-flex items-center gap-1.5 ${display.color}`}><GoDotFill/> {display.text}</span>;
 };
 
+// NEW: Sub-component to display time logs for a task
 const TaskTimeLogsDisplay = ({ taskId, currentUser }) => {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -126,7 +191,8 @@ const TaskTimeLogsDisplay = ({ taskId, currentUser }) => {
             setLoading(true);
             try {
                 const response = await axiosInstance.get(API_PATHS.TASKS.GET_TASK_TIMELOGS(taskId));
-                setLogs(response.data.timeLogs || []);
+                // Fetch all, sort by newest first for display relevance
+                setLogs((response.data.timeLogs || []).sort((a, b) => new Date(b.startTime) - new Date(a.startTime)));
             } catch (error) {
                 console.error("Failed to fetch time logs", error);
             } finally {
@@ -137,14 +203,15 @@ const TaskTimeLogsDisplay = ({ taskId, currentUser }) => {
     }, [taskId]);
 
     const formatDuration = (ms) => {
+        if (!ms && ms !== 0) return "Active"; // Indicate if timer is still running
         const hours = Math.floor(ms / 3600000);
         const minutes = Math.floor((ms % 3600000) / 60000);
         return `${hours}h ${minutes}m`;
     };
 
     const handleViewAll = () => {
-        const path = currentUser.role === 'admin' 
-            ? `/admin/tasks/${taskId}/timelogs` 
+        const path = currentUser.role === 'admin'
+            ? `/admin/tasks/${taskId}/timelogs`
             : `/user/tasks/${taskId}/timelogs`;
         navigate(path);
     };
@@ -156,7 +223,8 @@ const TaskTimeLogsDisplay = ({ taskId, currentUser }) => {
                 <p className="text-xs text-slate-400">Loading logs...</p>
             ) : logs.length > 0 ? (
                 <>
-                    <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                    <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2 mb-2">
+                        {/* Only show the first 4 logs */}
                         {logs.slice(0, 4).map(log => (
                             <li key={log._id} className="flex justify-between items-center text-sm p-2 bg-slate-100 rounded-md">
                                 <div className="flex items-center gap-2">
@@ -173,27 +241,33 @@ const TaskTimeLogsDisplay = ({ taskId, currentUser }) => {
                             </li>
                         ))}
                     </ul>
-                    {logs.length > 4 && (
-                        <button onClick={handleViewAll} className="text-xs text-primary font-semibold hover:underline mt-2">
-                            View all {logs.length} logs...
-                        </button>
-                    )}
+                    {/* Always show the "View All" button */}
+                    <button onClick={handleViewAll} className="text-xs text-primary font-semibold hover:underline mt-1">
+                        View all {logs.length > 4 ? `${logs.length} ` : ''}logs...
+                    </button>
                 </>
             ) : (
                 <div className="text-center text-xs text-slate-400 py-4">
                     <LuTimer className="mx-auto mb-1 text-2xl"/>
                     No time logged for this task yet.
+                    {/* Still show the button even if no logs */}
+                    <button onClick={handleViewAll} className="block text-xs text-primary font-semibold hover:underline mt-2">
+                        View Time Log History
+                    </button>
                 </div>
             )}
         </div>
     );
 };
-
 const TaskRow = ({ task, onRowClick, onTaskUpdate, currentUser }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const handleToggleExpand = (e) => { e.stopPropagation(); setIsExpanded(!isExpanded); };
 
+    // Permission check for the timer button
     const canToggleTimer = currentUser?.role === 'admin' || task.assignedTo.some(u => u._id === currentUser?._id);
+    
+    // Check if the task is completed
+    const isTaskCompleted = task.status === 'Completed';
 
     const handleStartTimer = async (e) => {
         e.stopPropagation();
@@ -209,10 +283,12 @@ const TaskRow = ({ task, onRowClick, onTaskUpdate, currentUser }) => {
     const handleStopTimer = async (e) => {
         e.stopPropagation();
         try {
+            // Use the activeTimeLogId from the task prop
             const response = await axiosInstance.put(API_PATHS.TASKS.STOP_TIMER(task._id, task.activeTimeLogId));
             toast.success(`Timer stopped for "${task.title}"`);
             onTaskUpdate(response.data.task);
-        } catch (error) {
+        } catch (error)
+        {
             toast.error("Failed to stop timer.");
         }
     };
@@ -224,7 +300,7 @@ const TaskRow = ({ task, onRowClick, onTaskUpdate, currentUser }) => {
 
     return (
         <>
-            <tr onClick={onRowClick} className="bg-white border-b border-slate-200 hover:bg-slate-50 cursor-pointer">
+            <tr onClick={onRowClick} className="bg-white border-b border-slate-200 hover:bg-slate-50 cursor-pointer transition-colors">
                 <td className="px-4 py-2 text-center">
                     {(task.todoChecklist?.length > 0 || (task.remarks && task.remarks.length > 0)) && (
                         <button onClick={handleToggleExpand} className="text-slate-400 hover:text-slate-700">
@@ -241,14 +317,22 @@ const TaskRow = ({ task, onRowClick, onTaskUpdate, currentUser }) => {
                 <td className="px-4 py-2 hidden lg:table-cell"><AvatarStack users={task.reviewers} /></td>
                 <td className="px-4 py-2 hidden md:table-cell">{formatDate(task.dueDate)}</td>
                 <td className="px-4 py-2"><TaskStatusPill task={task} /></td>
-                <td className="px-4 py-2 hidden lg:table-cell"><ReviewStatusPill task={task} /></td>
+                {/* --- THIS IS THE MODIFIED CELL --- */}
+                <td className="px-4 py-2 hidden lg:table-cell">
+                    <InteractiveReviewStatus 
+                        task={task} 
+                        currentUser={currentUser} 
+                        onTaskUpdate={onTaskUpdate} 
+                    />
+                </td>
+                {/* --- END MODIFIED CELL --- */}
                 <td className="px-4 py-2">
                     <button
-                        disabled={!canToggleTimer}
+                        disabled={!canToggleTimer || isTaskCompleted}
                         onClick={task.isTimerActiveForCurrentUser ? handleStopTimer : handleStartTimer}
-                        className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-2 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                            task.isTimerActiveForCurrentUser 
-                            ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                        className={`flex items-center gap-1.5 text-xs font-semibold rounded-full px-2 py-1 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${
+                            task.isTimerActiveForCurrentUser
+                            ? 'bg-red-100 text-red-700 hover:bg-red-200'
                             : 'bg-green-100 text-green-700 hover:bg-green-200'
                         }`}
                     >

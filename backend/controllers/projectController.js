@@ -212,6 +212,50 @@ const getMemberProjectById = async (req, res) => {
     }
 };
 
+/**
+ * @desc    Add one or more members to a project
+ * @route   PUT /api/projects/:id/members
+ * @access  Private (Admin or Project Owner)
+ */
+const addProjectMembers = async (req, res) => {
+    try {
+        const { memberIds } = req.body; // Expect an array of user IDs
+        const projectId = req.params.id;
+
+        if (!memberIds || !Array.isArray(memberIds)) {
+            return res.status(400).json({ message: "An array of memberIds is required." });
+        }
+
+        const project = await Project.findById(projectId);
+        if (!project) {
+            return res.status(404).json({ message: "Project not found." });
+        }
+
+        // Authorization: Only the project owner or an admin can add members
+        const isOwner = project.owner.toString() === req.user._id.toString();
+        const isAdmin = req.user.role === 'admin';
+
+        if (!isOwner && !isAdmin) {
+            return res.status(403).json({ message: "Forbidden: You are not authorized to add members to this project." });
+        }
+
+        // Use $addToSet to add new members without creating duplicates
+        await Project.updateOne(
+            { _id: projectId },
+            { $addToSet: { members: { $each: memberIds } } }
+        );
+        
+        // Fetch the updated project to return it with the populated members list
+        const updatedProject = await Project.findById(projectId)
+            .populate("owner members", "name email profileImageUrl");
+
+        res.json({ message: "Members added successfully.", project: updatedProject });
+
+    } catch (error) {
+        res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
+
 module.exports = {
   createProject,
   getProjects, // Make sure this is exported
@@ -219,6 +263,7 @@ module.exports = {
   getProjectGanttData, // Make sure this is exported
   getProjectById,
   updateProject,
-  getMemberProjectById 
+  getMemberProjectById,
+  addProjectMembers
 };
 

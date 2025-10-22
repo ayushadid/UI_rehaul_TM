@@ -1266,6 +1266,7 @@ try{
 
     //Fetch satistics for user specific tasks
     const totalTasks=await Task.countDocuments({assignedTo:userId});
+    const inProgressTasks = await Task.countDocuments({ assignedTo: userId, status: "In Progress" });
     const pendingTasks=await Task.countDocuments({assignedTo:userId,status:"Pending"});
     const completedTasks=await Task.countDocuments({assignedTo:userId,status:"Completed"});
     const overdueTasks=await Task.countDocuments({
@@ -1312,6 +1313,7 @@ try{
         statistics:{
             totalTasks,
             pendingTasks,
+            inProgressTasks,
             completedTasks,
             overdueTasks,
         },
@@ -1421,7 +1423,7 @@ const submitForReview = async (req, res) => {
 
         // 2. Security Check: Ensure the logged-in user is assigned to this task.
         const isUserAssigned = task.assignedTo.some(assigneeId => assigneeId.toString() === userId.toString());
-        
+
         if (!isUserAssigned) {
             return res.status(403).json({ message: "Forbidden: You are not assigned to this task." });
         }
@@ -1430,16 +1432,33 @@ const submitForReview = async (req, res) => {
         if (task.reviewStatus !== 'NotSubmitted' && task.reviewStatus !== 'ChangesRequested') {
             return res.status(400).json({ message: `Cannot submit task with current review status: ${task.reviewStatus}` });
         }
-        
+
         // 4. Update the task statuses
         task.status = 'Completed'; // The assignee's portion of the work is done.
         task.reviewStatus = 'PendingReview'; // The task is now awaiting action from the reviewers.
 
-        const updatedTask = await task.save();
-        
-        // You can add a notification to the reviewers here if you'd like
+        await task.save(); // Save the initial status changes
 
-        res.json({ message: "Task submitted for review successfully.", task: updatedTask });
+        // --- START: MODIFIED LOGIC ---
+        // 5. Fetch the task AGAIN, this time with all necessary populates for the response
+        const updatedTask = await Task.findById(taskId)
+            .populate('assignedTo', 'name profileImageUrl')
+            .populate('project', 'name')
+            .populate('createdBy', 'name')
+            .populate('reviewers', 'name')
+            .populate('comments.madeBy', 'name profileImageUrl') // If you use comments
+            .populate('remarks.madeBy', 'name profileImageUrl'); // If you use remarks
+
+        // 6. Add timer status for the requester (consistent with other functions)
+        const finalTaskObject = updatedTask.toObject();
+        const activeLogForRequester = await TimeLog.findOne({ task: task._id, user: req.user._id, endTime: null });
+        finalTaskObject.isTimerActiveForCurrentUser = !!activeLogForRequester;
+        finalTaskObject.activeTimeLogId = activeLogForRequester?._id.toString() || null;
+        // --- END: MODIFIED LOGIC ---
+
+        // Optional: Add notification logic here for reviewers if needed
+
+        res.json({ message: "Task submitted for review successfully.", task: finalTaskObject }); // Return the fully populated task
 
     } catch (error) {
         console.error("Error submitting task for review:", error);

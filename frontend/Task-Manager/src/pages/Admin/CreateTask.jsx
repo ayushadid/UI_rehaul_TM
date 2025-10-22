@@ -23,7 +23,6 @@ const CREATE_NEW_PROJECT_VALUE = 'CREATE_NEW_PROJECT';
 
 const defaultTodos = [
   { _id: 'default_done', text: 'Done', completed: false, isDefault: true },
-  { _id: 'default_approved', text: 'Approved', completed: false, isDefault: true },
 ];
 
 // Paste this new component inside CreateTask.jsx

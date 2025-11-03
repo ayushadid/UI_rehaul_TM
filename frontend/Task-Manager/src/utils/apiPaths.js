@@ -69,6 +69,7 @@ export const API_PATHS={
         POST_MESSAGE: (projectId) => `/api/projects/${projectId}/messages`,
         ADD_MEMBERS: (projectId) => `/api/projects/${projectId}/members`,
         GET_GANTT_DATA: (projectId) => `/api/projects/${projectId}/gantt`,
+        GET_WORK_MAP: (projectId) => `/api/projects/${projectId}/work-map`, // 👈 ADD THIS LINE
   },
      AI: {
         CREATE_TASK: "/api/ai/create-task",

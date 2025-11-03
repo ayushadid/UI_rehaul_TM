@@ -2,6 +2,49 @@
 @import "tailwindcss";
 
 
+.react-flow-edge-review .react-flow__edge-path {
+  stroke: #f97316; /* Orange */
+  stroke-width: 2;
+}
+
+.react-flow-edge-approve .react-flow__edge-path {
+  stroke: #10b981; /* Green */
+  stroke-width: 2;
+}
+
+.react-flow-edge-owner .react-flow__edge-path {
+  stroke: #cbd5e1; /* Slate-300 */
+  stroke-dasharray: 5 5;
+}
+
+/* 👇 --- ADD THESE NEW CLASSES --- 👇 */
+
+/* For dependency "blocks" edges */
+.react-flow-edge-dependency .react-flow__edge-path {
+  stroke: #ef4444; /* Red */
+  stroke-width: 2;
+}
+
+/* For faint "assigned" edges in dependency view */
+.react-flow-edge-faint .react-flow__edge-path {
+  stroke: #e2e8f0; /* Slate-200 */
+  stroke-dasharray: 2 4;
+}
+
+/* This styles the animated part of the edge */
+.react-flow-edge-review .react-flow__edge-path-animation {
+  stroke: #f97316;
+}
+
+.react-flow-edge-approve .react-flow__edge-path-animation {
+  stroke: #10b981;
+}
+
+/* 👇 --- ADD THIS NEW CLASS --- 👇 */
+.react-flow-edge-dependency .react-flow__edge-path-animation {
+  stroke: #ef4444;
+}
+
 @theme {
   --font-display: "Poppins","sans-serif";
   --breakpoint-3xl: 1920px;

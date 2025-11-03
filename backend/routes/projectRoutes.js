@@ -15,6 +15,7 @@ const { getProjectMessages,
         postProjectMessage 
 } = require("../controllers/projectMessageController");
 
+const { getProjectWorkMap } = require("../controllers/visualsController");
 const { protect, adminOnly } = require("../middlewares/authMiddleware");
 
 
@@ -34,6 +35,8 @@ router.route("/")
 // GET /api/projects/:id/gantt
 router.get("/:id/gantt", protect, getProjectGanttData);
 
+
+router.get("/:id/work-map", protect, getProjectWorkMap);
 // GET /api/projects/:id
 // PUT /api/projects/:id
 router.route("/:id")

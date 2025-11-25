@@ -265,10 +265,6 @@ const handleValueChange = useCallback((key, value) => {
       setError("Title is required");
       return;
     }
-    if(!taskData.description.trim()){
-      setError("Description is required");
-      return;
-    }
     if(!taskData.dueDate){
       setError("Due Date is required");
       return;
